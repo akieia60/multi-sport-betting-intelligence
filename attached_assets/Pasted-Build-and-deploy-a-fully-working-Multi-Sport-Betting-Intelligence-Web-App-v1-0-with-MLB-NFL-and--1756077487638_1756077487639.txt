@@ -1,0 +1,43 @@
+Build and deploy a fully working Multi-Sport Betting Intelligence Web App (v1.0) with MLB, NFL, and NBA support. Core engine: Prop Finder (game → team → player edges), Elite Players (top edges), Attack Board (most exploitable defenses/pitchers/teams), Team Intel, Analytics, and a bonus Parlay Builder.
+
+Edge/Exploitability math: Implement sport-specific scoring from the spec (Sections 3–5): MLB = PitchMatchEdge + RecentForm + SlotVuln + Environment; NFL = Role/Usage + Opponent Tendencies + Environment + RecentForm; NBA = Minutes/Usage + Opponent Weakness + Environment + RecentForm. Normalize with z-scores per slate; store Edge per player and Exploitability per opponent unit.
+
+Data ingestion: League APIs for schedules, lineups, player usage, opponent tendencies, venue/weather (Open-Meteo/NWS), injuries, implied totals. Cache with Upstash Redis. Persist to Supabase Postgres via Prisma. If API fails, surface “Data Stale” and fallback to last-good cache.
+
+API routes:
+	•	GET /api/{sport}/slate → slate snapshot
+	•	GET /api/{sport}/game/{id} → full game breakdown
+	•	GET /api/{sport}/elite-players → top edges
+	•	GET /api/{sport}/attack-board → opponent exploitability
+	•	GET /api/{sport}/props/suggest → best prop types
+	•	POST /api/{sport}/parlay/generate → 4/6/8 leg builds
+	•	POST /api/refresh → ETL trigger (cron/admin)
+
+Frontend (Next.js 14 + TypeScript + Tailwind + shadcn/ui + Recharts):
+	•	Sport switcher, search, filters (usage, pace, opponent rank, hot streak, venue/weather, prop type).
+	•	Responsive tables: MLB (OPS, PitchMatchEdge, SlotVuln, Env), NFL (snaps/routes/targets, RZ share, OppWeakness, Env), NBA (minutes, usage, opp rank, pace/env).
+	•	Player modal: usage/role timeline, opponent splits, venue/pace/weather boosts, rolling form charts, prop confidence notes.
+	•	Attack Board deep-links to games.
+	•	Parlay Builder buttons ($50K/4, $100K/6, $1M/8) → legs with rationale + swap suggestions.
+
+Subscriptions & Capper Portals:
+	•	Free = 1 game/day (delayed).
+	•	Standard = full slates, 2-hourly refresh (hourly on game days).
+	•	VIP = alerts + Parlay Builder + early refresh.
+	•	/c/{handle} = capper dashboards with notes + paywall, tracked revenue share.
+
+Tech stack & deployment: Next.js 14 App Router, Supabase Postgres (Prisma), Upstash Redis, Vercel hosting + Cron for ETL (refresh every 2h, hourly from 07:00). Secrets in env vars.
+
+Acceptance tests (must pass):
+	1.	Public URL loads mobile/desktop; sport switcher works.
+	2.	Every game lists; team → player tables show edges.
+	3.	Filters update tables instantly.
+	4.	Player modal displays usage, tendencies, environment, rolling charts.
+	5.	Attack Board ranks opponents correctly; links to games.
+	6.	Parlay Builder generates legs with swap suggestions.
+	7.	Auto-refresh active with countdown; no blank widgets (skeletons + last-good).
+	8.	Capper portal renders engine with notes + paywall.
+	9.	README documents env vars, data adapters, adding a sport.
+	10.	Median device load <2.5s on 10-game slates.
+
+Deliverables: Live deployed app (Vercel), repo, README, and working acceptance tests. Do not stop until a public URL is returned.
