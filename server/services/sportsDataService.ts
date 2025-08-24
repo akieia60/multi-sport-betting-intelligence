@@ -49,104 +49,37 @@ interface SportsDataPlayerResponse {
 
 export class SportsDataService {
   private readonly apiKey: string;
-  private apiProvider: "api-sports" | "sportsdata" | "unknown" = "unknown";
-  private baseUrl: string = "";
+  private readonly baseUrl = "https://api.sportsdata.io/v3";
 
   constructor() {
     this.apiKey = process.env.SPORTS_DATA_API_KEY!;
     if (!this.apiKey) {
       throw new Error("SPORTS_DATA_API_KEY environment variable is required");
     }
-  }
-
-  private async identifyProvider(): Promise<void> {
-    if (this.apiProvider !== "unknown") return;
-
-    console.log("Identifying sports data provider...");
-    
-    // Test API-Sports first (most likely based on key format)
-    try {
-      const response = await fetch("https://api-football-v1.p.rapidapi.com/v3/status", {
-        headers: {
-          'X-RapidAPI-Key': this.apiKey,
-          'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com'
-        }
-      });
-      
-      if (response.ok) {
-        this.apiProvider = "api-sports";
-        this.baseUrl = "https://api-football-v1.p.rapidapi.com/v3";
-        console.log("✅ Identified provider: API-Sports");
-        return;
-      }
-    } catch (error) {
-      console.log("❌ API-Sports test failed");
-    }
-
-    // Test SportsDataIO
-    try {
-      const response = await fetch("https://api.sportsdata.io/v3/nfl/scores/json/AreAnyGamesInProgress", {
-        headers: {
-          'Ocp-Apim-Subscription-Key': this.apiKey
-        }
-      });
-      
-      if (response.ok) {
-        this.apiProvider = "sportsdata";
-        this.baseUrl = "https://api.sportsdata.io/v3";
-        console.log("✅ Identified provider: SportsDataIO");
-        return;
-      }
-    } catch (error) {
-      console.log("❌ SportsDataIO test failed");
-    }
-
-    // Test alternative SportsDataIO format
-    try {
-      const response = await fetch(`https://api.sportsdata.io/v3/nfl/scores/json/AreAnyGamesInProgress?key=${this.apiKey}`);
-      
-      if (response.ok) {
-        this.apiProvider = "sportsdata";
-        this.baseUrl = "https://api.sportsdata.io/v3";
-        console.log("✅ Identified provider: SportsDataIO (query param)");
-        return;
-      }
-    } catch (error) {
-      console.log("❌ SportsDataIO (query param) test failed");
-    }
-
-    console.log("⚠️ Could not identify sports data provider");
-    throw new Error("Unable to identify sports data provider with provided API key");
+    console.log("🏈 Using SportsDataIO with key:", this.apiKey.substring(0, 8) + "...");
   }
 
   private async makeRequest<T>(endpoint: string): Promise<T> {
-    await this.identifyProvider();
+    // SportsDataIO uses query parameter authentication
+    const url = `${this.baseUrl}${endpoint}?key=${this.apiKey}`;
     
-    let url: string;
-    let headers: Record<string, string> = {};
-
-    if (this.apiProvider === "api-sports") {
-      url = `${this.baseUrl}${endpoint}`;
-      headers = {
-        'X-RapidAPI-Key': this.apiKey,
-        'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com'
-      };
-    } else if (this.apiProvider === "sportsdata") {
-      url = `${this.baseUrl}${endpoint}?key=${this.apiKey}`;
-    } else {
-      throw new Error("Unknown API provider");
-    }
-
-    console.log(`Fetching sports data: ${endpoint}`);
+    console.log(`📡 Fetching SportsDataIO: ${endpoint}`);
+    console.log(`🔗 Full URL: ${url.replace(this.apiKey, "***KEY***")}`);
     
-    const response = await fetch(url, { headers });
+    const response = await fetch(url);
+    
+    console.log(`📊 Response status: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
-      console.error(`Sports API error: ${response.status} ${response.statusText}`);
-      throw new Error(`Sports API request failed: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`❌ SportsDataIO error details:`, errorText);
+      throw new Error(`SportsDataIO API request failed: ${response.status} - ${errorText}`);
     }
     
-    return await response.json();
+    const data = await response.json();
+    console.log(`✅ Successfully fetched data, type: ${typeof data}, length: ${Array.isArray(data) ? data.length : 'not array'}`);
+    
+    return data;
   }
 
   async getMLBGames(date?: string): Promise<Game[]> {
