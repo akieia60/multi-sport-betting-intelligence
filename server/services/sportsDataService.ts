@@ -49,7 +49,8 @@ interface SportsDataPlayerResponse {
 
 export class SportsDataService {
   private readonly apiKey: string;
-  private readonly baseUrl = "https://api.sportsdata.io/v3";
+  private apiProvider: "api-sports" | "sportsdata" | "unknown" = "unknown";
+  private baseUrl: string = "";
 
   constructor() {
     this.apiKey = process.env.SPORTS_DATA_API_KEY!;
@@ -58,11 +59,87 @@ export class SportsDataService {
     }
   }
 
+  private async identifyProvider(): Promise<void> {
+    if (this.apiProvider !== "unknown") return;
+
+    console.log("Identifying sports data provider...");
+    
+    // Test API-Sports first (most likely based on key format)
+    try {
+      const response = await fetch("https://api-football-v1.p.rapidapi.com/v3/status", {
+        headers: {
+          'X-RapidAPI-Key': this.apiKey,
+          'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com'
+        }
+      });
+      
+      if (response.ok) {
+        this.apiProvider = "api-sports";
+        this.baseUrl = "https://api-football-v1.p.rapidapi.com/v3";
+        console.log("✅ Identified provider: API-Sports");
+        return;
+      }
+    } catch (error) {
+      console.log("❌ API-Sports test failed");
+    }
+
+    // Test SportsDataIO
+    try {
+      const response = await fetch("https://api.sportsdata.io/v3/nfl/scores/json/AreAnyGamesInProgress", {
+        headers: {
+          'Ocp-Apim-Subscription-Key': this.apiKey
+        }
+      });
+      
+      if (response.ok) {
+        this.apiProvider = "sportsdata";
+        this.baseUrl = "https://api.sportsdata.io/v3";
+        console.log("✅ Identified provider: SportsDataIO");
+        return;
+      }
+    } catch (error) {
+      console.log("❌ SportsDataIO test failed");
+    }
+
+    // Test alternative SportsDataIO format
+    try {
+      const response = await fetch(`https://api.sportsdata.io/v3/nfl/scores/json/AreAnyGamesInProgress?key=${this.apiKey}`);
+      
+      if (response.ok) {
+        this.apiProvider = "sportsdata";
+        this.baseUrl = "https://api.sportsdata.io/v3";
+        console.log("✅ Identified provider: SportsDataIO (query param)");
+        return;
+      }
+    } catch (error) {
+      console.log("❌ SportsDataIO (query param) test failed");
+    }
+
+    console.log("⚠️ Could not identify sports data provider");
+    throw new Error("Unable to identify sports data provider with provided API key");
+  }
+
   private async makeRequest<T>(endpoint: string): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}?key=${this.apiKey}`;
+    await this.identifyProvider();
+    
+    let url: string;
+    let headers: Record<string, string> = {};
+
+    if (this.apiProvider === "api-sports") {
+      url = `${this.baseUrl}${endpoint}`;
+      headers = {
+        'X-RapidAPI-Key': this.apiKey,
+        'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com'
+      };
+    } else if (this.apiProvider === "sportsdata") {
+      url = `${this.baseUrl}${endpoint}?key=${this.apiKey}`;
+    } else {
+      throw new Error("Unknown API provider");
+    }
+
     console.log(`Fetching sports data: ${endpoint}`);
     
-    const response = await fetch(url);
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       console.error(`Sports API error: ${response.status} ${response.statusText}`);
