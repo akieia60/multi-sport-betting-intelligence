@@ -48,23 +48,15 @@ interface SportsDataPlayerResponse {
 }
 
 export class SportsDataService {
-  private readonly apiKey: string;
-  private readonly baseUrl = "https://api.sportsdata.io/v3";
+  private readonly sportsDbUrl = "https://www.thesportsdb.com/api/v1/json/3";
+  private readonly weatherUrl = "https://api.open-meteo.com/v1";
 
   constructor() {
-    this.apiKey = process.env.SPORTS_DATA_API_KEY!;
-    if (!this.apiKey) {
-      throw new Error("SPORTS_DATA_API_KEY environment variable is required");
-    }
-    console.log("🏈 Using SportsDataIO with key:", this.apiKey.substring(0, 8) + "...");
+    console.log("🏟️ Using The Sports DB (Free) + Open-Meteo Weather");
   }
 
-  private async makeRequest<T>(endpoint: string): Promise<T> {
-    // SportsDataIO uses query parameter authentication
-    const url = `${this.baseUrl}${endpoint}?key=${this.apiKey}`;
-    
-    console.log(`📡 Fetching SportsDataIO: ${endpoint}`);
-    console.log(`🔗 Full URL: ${url.replace(this.apiKey, "***KEY***")}`);
+  private async makeRequest<T>(url: string, errorContext?: string): Promise<T> {
+    console.log(`📡 Fetching: ${url}`);
     
     const response = await fetch(url);
     
@@ -72,43 +64,107 @@ export class SportsDataService {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ SportsDataIO error details:`, errorText);
-      throw new Error(`SportsDataIO API request failed: ${response.status} - ${errorText}`);
+      console.error(`❌ API error${errorContext ? ` (${errorContext})` : ''}:`, errorText);
+      throw new Error(`API request failed: ${response.status} - ${errorText}`);
     }
     
     const data = await response.json();
-    console.log(`✅ Successfully fetched data, type: ${typeof data}, length: ${Array.isArray(data) ? data.length : 'not array'}`);
+    console.log(`✅ Successfully fetched data, records: ${Array.isArray(data) ? data.length : typeof data}`);
     
     return data;
   }
 
-  async getMLBGames(date?: string): Promise<Game[]> {
+  async getWeatherForGame(latitude: number, longitude: number, date?: string): Promise<any> {
     try {
       const dateStr = date || new Date().toISOString().split('T')[0];
-      const games = await this.makeRequest<SportsDataGameResponse[]>(`/mlb/scores/json/GamesByDate/${dateStr}`);
+      const url = `${this.weatherUrl}/forecast?latitude=${latitude}&longitude=${longitude}&start_date=${dateStr}&end_date=${dateStr}&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max&timezone=auto`;
       
-      return games.map(game => ({
-        id: `mlb-${game.GameID}`,
-        sportId: "mlb",
-        homeTeamId: `mlb-${game.HomeTeamID}`,
-        awayTeamId: `mlb-${game.AwayTeamID}`,
-        gameDate: new Date(game.DateTime),
-        venue: game.Stadium || null,
-        weather: game.Temperature ? {
-          temperature: game.Temperature,
-          humidity: game.Humidity || null,
-          windSpeed: game.WindSpeed || null,
-          windDirection: game.WindDirection || null,
-          conditions: null
-        } : null,
-        gameTotal: null,
-        isCompleted: game.Status === "Final" || game.Status === "Closed",
-        lastUpdated: new Date()
+      return await this.makeRequest(url, 'Weather');
+    } catch (error) {
+      console.error("Error fetching weather data:", error);
+      return null;
+    }
+  }
+
+  async getMLBGames(date?: string): Promise<Game[]> {
+    try {
+      // The Sports DB - Get current season MLB games
+      const url = `${this.sportsDbUrl}/eventsseason.php?id=4424&s=2024`;
+      const response = await this.makeRequest<any>(url, 'MLB Games');
+      
+      if (!response.events) {
+        console.log("No MLB events found in response");
+        return [];
+      }
+
+      // Filter to recent/today's games for live feel
+      const today = new Date();
+      const recentGames = response.events.filter((event: any) => {
+        if (!event.dateEvent) return false;
+        const gameDate = new Date(event.dateEvent);
+        const daysDiff = Math.abs((today.getTime() - gameDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff <= 7; // Games within last week
+      }).slice(0, 10); // Limit to 10 games
+      
+      const gamesWithWeather = await Promise.all(recentGames.map(async (event: any) => {
+        const weather = event.strVenue ? await this.getWeatherForVenue(event.strVenue) : null;
+        
+        return {
+          id: `mlb-${event.idEvent}`,
+          sportId: "mlb",
+          homeTeamId: `mlb-${event.strHomeTeam?.replace(/\s+/g, '')}`,
+          awayTeamId: `mlb-${event.strAwayTeam?.replace(/\s+/g, '')}`,
+          gameDate: new Date(event.strTimestamp || event.dateEvent),
+          venue: event.strVenue || null,
+          weather: weather ? {
+            temperature: weather.daily?.temperature_2m_max?.[0] || null,
+            humidity: null,
+            windSpeed: weather.daily?.wind_speed_10m_max?.[0] || null,
+            windDirection: null,
+            conditions: weather.daily?.weather_code?.[0] ? this.getWeatherCondition(weather.daily.weather_code[0]) : null
+          } : null,
+          gameTotal: null,
+          isCompleted: event.strStatus === "Match Finished",
+          lastUpdated: new Date()
+        };
       }));
+      
+      return gamesWithWeather;
     } catch (error) {
       console.error("Error fetching MLB games:", error);
       return [];
     }
+  }
+
+  private async getWeatherForVenue(venueName: string): Promise<any> {
+    // MLB stadium coordinates (sample for major venues)
+    const stadiumCoords: Record<string, {lat: number, lng: number}> = {
+      'Yankee Stadium': {lat: 40.8296, lng: -73.9262},
+      'Fenway Park': {lat: 42.3467, lng: -71.0972},
+      'Wrigley Field': {lat: 41.9484, lng: -87.6553},
+      'Dodger Stadium': {lat: 34.0739, lng: -118.2400},
+      'Coors Field': {lat: 39.7559, lng: -104.9942},
+      'Camden Yards': {lat: 39.2839, lng: -76.6218},
+      'Progressive Field': {lat: 41.4961, lng: -81.6850}
+    };
+
+    const coords = stadiumCoords[venueName];
+    if (coords) {
+      return await this.getWeatherForGame(coords.lat, coords.lng);
+    }
+    return null;
+  }
+
+  private getWeatherCondition(code: number): string {
+    // Open-Meteo weather codes
+    if (code === 0) return 'Clear';
+    if (code <= 3) return 'Partly Cloudy'; 
+    if (code <= 48) return 'Foggy';
+    if (code <= 67) return 'Rainy';
+    if (code <= 77) return 'Snowy';
+    if (code <= 82) return 'Showers';
+    if (code <= 99) return 'Thunderstorms';
+    return 'Unknown';
   }
 
   async getNFLGames(week?: number, season?: number): Promise<Game[]> {
@@ -166,22 +222,27 @@ export class SportsDataService {
 
   async getMLBTeams(): Promise<Team[]> {
     try {
-      const teams = await this.makeRequest<SportsDataTeamResponse[]>("/mlb/scores/json/teams");
+      // The Sports DB - Get MLB teams 
+      const url = `${this.sportsDbUrl}/search_all_teams.php?l=MLB`;
+      const response = await this.makeRequest<any>(url, 'MLB Teams');
       
-      return teams
-        .filter(team => team.Active)
-        .map(team => ({
-          id: `mlb-${team.TeamID}`,
-          sportId: "mlb",
-          name: team.Name,
-          city: team.City,
-          abbreviation: team.Key,
-          logoUrl: team.WikipediaLogoUrl || null,
-          primaryColor: team.PrimaryColor || "#000000",
-          secondaryColor: team.SecondaryColor || "#FFFFFF",
-          conference: team.Conference || null,
-          division: team.Division || null
-        }));
+      if (!response.teams) {
+        console.log("No MLB teams found in response");
+        return [];
+      }
+      
+      return response.teams.map((team: any) => ({
+        id: `mlb-${team.strTeam?.replace(/\s+/g, '')}`,
+        sportId: "mlb",
+        name: team.strTeam || 'Unknown',
+        city: team.strLocation || team.strTeam?.split(' ')[0] || 'Unknown',
+        abbreviation: team.strTeamShort || team.strTeam?.substring(0, 3).toUpperCase() || 'UNK',
+        logoUrl: team.strBadge || team.strLogo || null,
+        primaryColor: team.strColour1 ? `#${team.strColour1}` : "#000000",
+        secondaryColor: team.strColour2 ? `#${team.strColour2}` : "#FFFFFF",
+        conference: team.strLeague || "MLB",
+        division: team.strDivision || null
+      }));
     } catch (error) {
       console.error("Error fetching MLB teams:", error);
       return [];
