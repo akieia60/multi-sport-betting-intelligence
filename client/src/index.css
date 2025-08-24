@@ -1,0 +1,230 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(220, 13%, 11%);
+  --foreground: hsl(210, 6%, 91%);
+  --card: hsl(220, 16%, 10%);
+  --card-foreground: hsl(210, 6%, 91%);
+  --popover: hsl(220, 13%, 11%);
+  --popover-foreground: hsl(210, 6%, 91%);
+  --primary: hsl(203, 88%, 53%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(220, 16%, 20%);
+  --secondary-foreground: hsl(210, 6%, 91%);
+  --muted: hsl(220, 16%, 15%);
+  --muted-foreground: hsl(210, 6%, 65%);
+  --accent: hsl(220, 16%, 17%);
+  --accent-foreground: hsl(210, 6%, 91%);
+  --destructive: hsl(356, 91%, 54%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(220, 16%, 25%);
+  --input: hsl(220, 16%, 20%);
+  --ring: hsl(203, 88%, 53%);
+  --chart-1: hsl(203, 88%, 53%);
+  --chart-2: hsl(159, 100%, 36%);
+  --chart-3: hsl(42, 93%, 56%);
+  --chart-4: hsl(147, 79%, 42%);
+  --chart-5: hsl(341, 75%, 51%);
+  --sidebar: hsl(220, 16%, 10%);
+  --sidebar-foreground: hsl(210, 6%, 91%);
+  --sidebar-primary: hsl(203, 88%, 53%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(220, 16%, 17%);
+  --sidebar-accent-foreground: hsl(210, 6%, 91%);
+  --sidebar-border: hsl(220, 16%, 25%);
+  --sidebar-ring: hsl(203, 88%, 53%);
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 0.75rem;
+  --sport-mlb: hsl(203, 88%, 53%);
+  --sport-nfl: hsl(159, 100%, 36%);
+  --sport-nba: hsl(42, 93%, 56%);
+  --slate-50: hsl(210, 40%, 98%);
+  --slate-900: hsl(220, 13%, 11%);
+  --slate-800: hsl(220, 16%, 10%);
+  --slate-700: hsl(220, 16%, 15%);
+  --slate-600: hsl(220, 16%, 20%);
+  --shadow-2xs: 0px 1px 2px 0px hsl(0, 0%, 0%, 0.05);
+  --shadow-xs: 0px 1px 2px 0px hsl(0, 0%, 0%, 0.05);
+  --shadow-sm: 0px 1px 3px 0px hsl(0, 0%, 0%, 0.1), 0px 1px 2px -1px hsl(0, 0%, 0%, 0.1);
+  --shadow: 0px 1px 3px 0px hsl(0, 0%, 0%, 0.1), 0px 1px 2px -1px hsl(0, 0%, 0%, 0.1);
+  --shadow-md: 0px 4px 6px -1px hsl(0, 0%, 0%, 0.1), 0px 2px 4px -2px hsl(0, 0%, 0%, 0.1);
+  --shadow-lg: 0px 10px 15px -3px hsl(0, 0%, 0%, 0.1), 0px 4px 6px -4px hsl(0, 0%, 0%, 0.1);
+  --shadow-xl: 0px 20px 25px -5px hsl(0, 0%, 0%, 0.1), 0px 8px 10px -6px hsl(0, 0%, 0%, 0.1);
+  --shadow-2xl: 0px 25px 50px -12px hsl(0, 0%, 0%, 0.25);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --background: hsl(220, 13%, 11%);
+  --foreground: hsl(210, 6%, 91%);
+  --card: hsl(220, 16%, 10%);
+  --card-foreground: hsl(210, 6%, 91%);
+  --popover: hsl(220, 13%, 11%);
+  --popover-foreground: hsl(210, 6%, 91%);
+  --primary: hsl(203, 88%, 53%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(220, 16%, 20%);
+  --secondary-foreground: hsl(210, 6%, 91%);
+  --muted: hsl(220, 16%, 15%);
+  --muted-foreground: hsl(210, 6%, 65%);
+  --accent: hsl(220, 16%, 17%);
+  --accent-foreground: hsl(210, 6%, 91%);
+  --destructive: hsl(356, 91%, 54%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(220, 16%, 25%);
+  --input: hsl(220, 16%, 20%);
+  --ring: hsl(203, 88%, 53%);
+  --chart-1: hsl(203, 88%, 53%);
+  --chart-2: hsl(159, 100%, 36%);
+  --chart-3: hsl(42, 93%, 56%);
+  --chart-4: hsl(147, 79%, 42%);
+  --chart-5: hsl(341, 75%, 51%);
+  --sidebar: hsl(220, 16%, 10%);
+  --sidebar-foreground: hsl(210, 6%, 91%);
+  --sidebar-primary: hsl(203, 88%, 53%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(220, 16%, 17%);
+  --sidebar-accent-foreground: hsl(210, 6%, 91%);
+  --sidebar-border: hsl(220, 16%, 25%);
+  --sidebar-ring: hsl(203, 88%, 53%);
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  /* Custom sport color classes */
+  .gradient-mlb {
+    background: linear-gradient(135deg, var(--sport-mlb), hsl(203, 88%, 43%));
+  }
+
+  .gradient-nfl {
+    background: linear-gradient(135deg, var(--sport-nfl), hsl(159, 100%, 26%));
+  }
+
+  .gradient-nba {
+    background: linear-gradient(135deg, var(--sport-nba), hsl(42, 93%, 46%));
+  }
+
+  /* Custom scrollbar */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: var(--muted);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--muted-foreground);
+    border-radius: 2px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--foreground);
+  }
+
+  /* Pulse animation for live indicators */
+  .pulse-dot {
+    animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { 
+      opacity: 1; 
+    }
+    50% { 
+      opacity: 0.3; 
+    }
+  }
+
+  /* Data cell hover effects */
+  .data-cell {
+    transition: all 0.2s ease;
+  }
+
+  .data-cell:hover {
+    background-color: hsl(var(--accent));
+  }
+
+  /* Sport specific color utilities */
+  .text-sport-mlb {
+    color: var(--sport-mlb);
+  }
+
+  .text-sport-nfl {
+    color: var(--sport-nfl);
+  }
+
+  .text-sport-nba {
+    color: var(--sport-nba);
+  }
+
+  .bg-sport-mlb {
+    background-color: var(--sport-mlb);
+  }
+
+  .bg-sport-nfl {
+    background-color: var(--sport-nfl);
+  }
+
+  .bg-sport-nba {
+    background-color: var(--sport-nba);
+  }
+
+  .border-sport-mlb {
+    border-color: var(--sport-mlb);
+  }
+
+  .border-sport-nfl {
+    border-color: var(--sport-nfl);
+  }
+
+  .border-sport-nba {
+    border-color: var(--sport-nba);
+  }
+
+  /* Focus states */
+  .focus-visible\:ring-sport-mlb:focus-visible {
+    --tw-ring-color: var(--sport-mlb);
+  }
+
+  .focus-visible\:ring-sport-nfl:focus-visible {
+    --tw-ring-color: var(--sport-nfl);
+  }
+
+  .focus-visible\:ring-sport-nba:focus-visible {
+    --tw-ring-color: var(--sport-nba);
+  }
+}
+
+@layer components {
+  /* Custom component styles */
+  .confidence-stars {
+    @apply flex items-center justify-center space-x-1;
+  }
+
+  .edge-score-badge {
+    @apply flex items-center justify-center font-bold text-white rounded-full;
+  }
+
+  .sport-badge {
+    @apply px-3 py-1 rounded text-sm font-medium transition-colors;
+  }
+}
