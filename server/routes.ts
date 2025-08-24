@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { sportsDataService } from "./services/sportsData";
+import { sportsDataService } from "./services/sportsDataService";
+import { dataIngestionService } from "./services/dataIngestionService";
 import { edgeCalculator } from "./services/edgeCalculator";
 import { parlayBuilder } from "./services/parlayBuilder";
 import { z } from "zod";
@@ -18,7 +19,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/:sport/slate', async (req, res) => {
     try {
       const { sport } = req.params;
-      const slateData = await sportsDataService.getSlateSnapshot(sport);
+      // Get today's games and edges count
+      const games = await storage.getTodaysGames(sport);
+      const edges = await storage.getPlayerEdges(undefined, sport);
+      const elitePlayers = await storage.getElitePlayers(sport, 20);
+      
+      const slateData = {
+        games: games.length,
+        totalEdges: edges.length,
+        eliteCount: elitePlayers.length,
+        highConfidenceProps: edges.filter(e => e.confidence >= 4).length,
+        avgEdgeScore: edges.length ? Math.round(edges.reduce((acc, e) => acc + parseInt(e.edgeScore), 0) / edges.length) : 0,
+        lastUpdated: new Date().toISOString()
+      };
+      
       res.json(slateData);
     } catch (error) {
       console.error("Error fetching slate:", error);
@@ -29,7 +43,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/:sport/games', async (req, res) => {
     try {
       const { sport } = req.params;
-      const games = await storage.getTodaysGames(sport);
+      let games = await storage.getTodaysGames(sport);
+      
+      // If no games in database, try to fetch from API
+      if (games.length === 0) {
+        try {
+          switch (sport) {
+            case "mlb":
+              games = await sportsDataService.getMLBGames();
+              break;
+            case "nfl":
+              games = await sportsDataService.getNFLGames();
+              break;
+            case "nba":
+              games = await sportsDataService.getNBAGames();
+              break;
+          }
+          
+          // Store games in database for next time
+          for (const game of games) {
+            try {
+              await storage.createGame({
+                ...game,
+                weather: game.weather as any
+              });
+            } catch (error) {
+              // Game might already exist
+            }
+          }
+        } catch (apiError) {
+          console.error(`Error fetching ${sport} games from API:`, apiError);
+        }
+      }
+      
       res.json(games);
     } catch (error) {
       console.error("Error fetching games:", error);
@@ -174,20 +220,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { sport } = req.body;
       
-      if (sport) {
-        await sportsDataService.refreshSportData(sport);
-      } else {
-        // Refresh all sports
-        const sports = await storage.getSports();
-        for (const sportData of sports) {
-          await sportsDataService.refreshSportData(sportData.id);
-        }
-      }
+      const result = await dataIngestionService.triggerRefresh(sport);
       
-      res.json({ 
-        message: "Data refresh completed",
-        timestamp: new Date().toISOString()
-      });
+      if (result.success) {
+        res.json({ 
+          message: result.message,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(500).json({ message: result.message });
+      }
     } catch (error) {
       console.error("Error refreshing data:", error);
       res.status(500).json({ message: "Failed to refresh data" });
@@ -197,7 +239,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sports metadata
   app.get('/api/sports', async (req, res) => {
     try {
-      const sports = await storage.getSports();
+      // Return hardcoded sports for now since we don't store them in database
+      const sports = [
+        {
+          id: "mlb",
+          name: "Major League Baseball",
+          displayName: "MLB",
+          colorCode: "#003087",
+          isActive: true
+        },
+        {
+          id: "nfl", 
+          name: "National Football League",
+          displayName: "NFL",
+          colorCode: "#013369",
+          isActive: true
+        },
+        {
+          id: "nba",
+          name: "National Basketball Association", 
+          displayName: "NBA",
+          colorCode: "#C8102E",
+          isActive: true
+        }
+      ];
       res.json(sports);
     } catch (error) {
       console.error("Error fetching sports:", error);
@@ -209,11 +274,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/:sport/teams', async (req, res) => {
     try {
       const { sport } = req.params;
-      const teams = await storage.getTeams(sport);
+      let teams = await storage.getTeams(sport);
+      
+      // If no teams in database, fetch from API
+      if (teams.length === 0) {
+        try {
+          switch (sport) {
+            case "mlb":
+              teams = await sportsDataService.getMLBTeams();
+              break;
+            case "nfl":
+              teams = await sportsDataService.getNFLTeams();
+              break;
+            case "nba":
+              teams = await sportsDataService.getNBATeams();
+              break;
+          }
+        } catch (apiError) {
+          console.error(`Error fetching ${sport} teams from API:`, apiError);
+        }
+      }
+      
       res.json(teams);
     } catch (error) {
       console.error("Error fetching teams:", error);
       res.status(500).json({ message: "Failed to fetch teams" });
+    }
+  });
+
+  // Additional edge endpoint for specific sport
+  app.get('/api/:sport/edges', async (req, res) => {
+    try {
+      const { sport } = req.params;
+      const edges = await storage.getPlayerEdges(undefined, sport);
+      res.json(edges);
+    } catch (error) {
+      console.error("Error fetching edges:", error);
+      res.status(500).json({ message: "Failed to fetch edges" });
     }
   });
 
@@ -224,6 +321,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       timestamp: new Date().toISOString()
     });
   });
+
+  // Initialize data on server start
+  setTimeout(async () => {
+    try {
+      console.log("Initializing sports data...");
+      await dataIngestionService.initializeSports();
+      
+      // Try to refresh data for each sport
+      const sports = ["mlb", "nfl", "nba"];
+      for (const sport of sports) {
+        try {
+          console.log(`Attempting initial data load for ${sport.toUpperCase()}...`);
+          await dataIngestionService.triggerRefresh(sport);
+        } catch (error) {
+          console.log(`Initial ${sport} data load failed (will try again later):`, error instanceof Error ? error.message : 'Unknown error');
+        }
+      }
+    } catch (error) {
+      console.error("Error during initial data setup:", error);
+    }
+  }, 5000); // Wait 5 seconds after server start
 
   const httpServer = createServer(app);
   return httpServer;
