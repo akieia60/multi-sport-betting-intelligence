@@ -8,7 +8,8 @@ import {
   TrendingUp, 
   Layers,
   Search,
-  Filter
+  Filter,
+  Crown
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -197,6 +198,14 @@ export function Sidebar({ selectedSport, filters, onFiltersChange }: SidebarProp
             </div>
           </CardContent>
         </Card>
+
+        {/* Upgrade Button */}
+        <Link href="/subscription">
+          <a className="mt-4 w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-lg hover:from-purple-700 hover:to-purple-600 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5" data-testid="button-upgrade">
+            <Crown className="h-5 w-5" />
+            <span>Upgrade to VIP</span>
+          </a>
+        </Link>
       </div>
     </aside>
   );

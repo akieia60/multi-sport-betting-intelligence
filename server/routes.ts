@@ -6,12 +6,24 @@ import { dataIngestionService } from "./services/dataIngestionService";
 import { edgeCalculator } from "./services/edgeCalculator";
 import { parlayBuilder } from "./services/parlayBuilder";
 import { z } from "zod";
+import Stripe from "stripe";
 
 const parlayGenerateSchema = z.object({
   legCount: z.number().min(4).max(8),
   riskTolerance: z.enum(["conservative", "balanced", "aggressive"]),
   minConfidence: z.number().min(1).max(5).optional().default(3)
 });
+
+// Initialize Stripe
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-07-30.basil" })
+  : null;
+
+// Subscription tier pricing (in cents)
+const SUBSCRIPTION_PRICES = {
+  standard: 2499, // $24.99/month
+  vip: 9999 // $99.99/month
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -350,6 +362,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false, 
         error: 'Failed to initialize sports data' 
       });
+    }
+  });
+
+  // Payment routes
+  app.post('/api/create-subscription', async (req, res) => {
+    if (!stripe) {
+      return res.status(500).json({ message: "Payment processing not configured" });
+    }
+    
+    try {
+      const { tier, email } = req.body;
+      
+      if (!SUBSCRIPTION_PRICES[tier as keyof typeof SUBSCRIPTION_PRICES]) {
+        return res.status(400).json({ message: "Invalid subscription tier" });
+      }
+      
+      // Create or get customer
+      let customer;
+      const existingCustomers = await stripe.customers.list({ email, limit: 1 });
+      
+      if (existingCustomers.data.length > 0) {
+        customer = existingCustomers.data[0];
+      } else {
+        customer = await stripe.customers.create({ email });
+      }
+      
+      // Create price for subscription
+      const price = await stripe.prices.create({
+        currency: 'usd',
+        unit_amount: SUBSCRIPTION_PRICES[tier as keyof typeof SUBSCRIPTION_PRICES],
+        recurring: {
+          interval: 'month'
+        },
+        product_data: {
+          name: `${tier.toUpperCase()} Subscription - Multi-Sport Betting Intelligence`,
+          metadata: {
+            tier: tier
+          }
+        }
+      });
+      
+      // Create subscription
+      const subscription = await stripe.subscriptions.create({
+        customer: customer.id,
+        items: [{
+          price: price.id
+        }],
+        payment_behavior: 'default_incomplete',
+        payment_settings: { save_default_payment_method: 'on_subscription' },
+        expand: ['latest_invoice.payment_intent']
+      });
+      
+      const invoice = subscription.latest_invoice as any;
+      const paymentIntent = invoice?.payment_intent as any;
+      
+      res.json({
+        subscriptionId: subscription.id,
+        clientSecret: paymentIntent?.client_secret,
+        customerId: customer.id
+      });
+    } catch (error: any) {
+      console.error("Stripe subscription error:", error);
+      res.status(500).json({ message: error.message || "Failed to create subscription" });
+    }
+  });
+
+  app.post('/api/cancel-subscription', async (req, res) => {
+    if (!stripe) {
+      return res.status(500).json({ message: "Payment processing not configured" });
+    }
+    
+    try {
+      const { subscriptionId } = req.body;
+      
+      const subscription = await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true
+      });
+      
+      res.json({ 
+        message: "Subscription will be cancelled at period end",
+        endsAt: new Date((subscription as any).current_period_end * 1000).toISOString()
+      });
+    } catch (error: any) {
+      console.error("Stripe cancellation error:", error);
+      res.status(500).json({ message: error.message || "Failed to cancel subscription" });
+    }
+  });
+
+  app.get('/api/subscription-status/:customerId', async (req, res) => {
+    if (!stripe) {
+      return res.status(500).json({ message: "Payment processing not configured" });
+    }
+    
+    try {
+      const { customerId } = req.params;
+      
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: 'active',
+        limit: 1
+      });
+      
+      if (subscriptions.data.length === 0) {
+        return res.json({ tier: 'free', active: false });
+      }
+      
+      const subscription = subscriptions.data[0];
+      const amount = subscription.items.data[0].price.unit_amount;
+      
+      let tier = 'free';
+      if (amount === SUBSCRIPTION_PRICES.vip) {
+        tier = 'vip';
+      } else if (amount === SUBSCRIPTION_PRICES.standard) {
+        tier = 'standard';
+      }
+      
+      res.json({
+        tier,
+        active: true,
+        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString(),
+        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end
+      });
+    } catch (error: any) {
+      console.error("Subscription status error:", error);
+      res.status(500).json({ message: error.message || "Failed to check subscription" });
     }
   });
 

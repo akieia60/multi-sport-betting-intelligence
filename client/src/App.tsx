@@ -13,6 +13,7 @@ import AttackBoard from "@/pages/AttackBoard";
 import TeamIntel from "@/pages/TeamIntel";
 import Analytics from "@/pages/Analytics";
 import ParlayBuilder from "@/pages/ParlayBuilder";
+import Subscription from "@/pages/Subscription";
 import NotFound from "@/pages/not-found";
 
 // Layout components
@@ -87,6 +88,10 @@ function Router() {
                 selectedSport={selectedSport}
                 filters={filters}
               />
+            </Route>
+            
+            <Route path="/subscription">
+              <Subscription />
             </Route>
             
             <Route component={NotFound} />
