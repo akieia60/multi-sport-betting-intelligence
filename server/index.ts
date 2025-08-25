@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { autoUpdateService } from "./services/autoUpdateService";
 
 const app = express();
 app.use(express.json());
@@ -67,5 +68,10 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start auto-update service for live data
+    autoUpdateService.start().catch(error => {
+      console.error("Failed to start auto-update service:", error);
+    });
   });
 })();

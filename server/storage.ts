@@ -37,6 +37,7 @@ export interface IStorage {
   // Team operations
   getTeams(sportId?: string): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
+  createTeam(team: any): Promise<Team>;
   
   // Player operations
   getPlayers(teamId?: string, sportId?: string): Promise<Player[]>;
@@ -56,6 +57,8 @@ export interface IStorage {
   getPlayerEdges(gameId?: string, sportId?: string): Promise<PlayerEdge[]>;
   getElitePlayers(sportId: string, limit?: number): Promise<PlayerEdge[]>;
   createPlayerEdge(edge: InsertPlayerEdge): Promise<PlayerEdge>;
+  getPlayerEdgesByPlayerId(playerId: string): Promise<PlayerEdge[]>;
+  updatePlayerEdge(id: string, data: Partial<PlayerEdge>): Promise<PlayerEdge>;
   
   // Attack board operations
   getAttackBoard(sportId: string): Promise<AttackBoard[]>;
@@ -254,6 +257,35 @@ export class DatabaseStorage implements IStorage {
   async createParlay(parlayData: any): Promise<Parlay> {
     const [newParlay] = await db.insert(parlays).values(parlayData).returning();
     return newParlay;
+  }
+
+  async createTeam(teamData: any): Promise<Team> {
+    try {
+      const [newTeam] = await db.insert(teams).values(teamData).onConflictDoNothing().returning();
+      if (!newTeam) {
+        const [existing] = await db.select().from(teams).where(eq(teams.id, teamData.id));
+        return existing;
+      }
+      return newTeam;
+    } catch (error) {
+      const [existing] = await db.select().from(teams).where(eq(teams.id, teamData.id));
+      return existing;
+    }
+  }
+
+  async getPlayerEdgesByPlayerId(playerId: string): Promise<PlayerEdge[]> {
+    return await db.select()
+      .from(playerEdges)
+      .where(eq(playerEdges.playerId, playerId))
+      .orderBy(desc(playerEdges.edgeScore));
+  }
+
+  async updatePlayerEdge(id: string, data: Partial<PlayerEdge>): Promise<PlayerEdge> {
+    const [updated] = await db.update(playerEdges)
+      .set(data)
+      .where(eq(playerEdges.id, id))
+      .returning();
+    return updated;
   }
 }
 
