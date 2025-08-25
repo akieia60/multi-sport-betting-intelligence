@@ -5,6 +5,8 @@ import { sportsDataService } from "./services/sportsDataService";
 import { dataIngestionService } from "./services/dataIngestionService";
 import { edgeCalculator } from "./services/edgeCalculator";
 import { parlayBuilder } from "./services/parlayBuilder";
+import { buildJackpotCandidates, edgeToLeg } from "./services/jackpotBuilder";
+import type { JackpotTier } from "./config/parlayJackpot";
 import { z } from "zod";
 import Stripe from "stripe";
 
@@ -224,6 +226,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting swap suggestions:", error);
       res.status(500).json({ message: "Failed to get swap suggestions" });
+    }
+  });
+
+  // Jackpot Parlay Builder endpoint
+  app.get('/api/:sport/jackpot-candidates', async (req, res) => {
+    try {
+      const { sport } = req.params;
+      const tier = (req.query.tier as JackpotTier) ?? '1M';
+      const stake = Number(req.query.stake ?? 10);
+
+      // Get today's elite edges
+      const edges = await storage.getPlayerEdges(undefined, sport);
+      const games = await storage.getTodaysGames(sport);
+      const gameMap = new Map(games.map(g => [g.id, g]));
+
+      // Convert edges to legs format
+      const todayLegs = edges
+        .filter(edge => edge.confidence >= 3) // Only high confidence
+        .map(edge => {
+          const gameData = gameMap.get(edge.gameId);
+          return edgeToLeg(edge, gameData);
+        })
+        .filter(leg => leg.edgeScore >= 55); // Only strong edges
+
+      console.log(`Building ${tier} jackpot candidates from ${todayLegs.length} quality legs`);
+      
+      const candidates = buildJackpotCandidates({ 
+        tier, 
+        stake, 
+        legs: todayLegs,
+        maxCandidates: 25 
+      });
+
+      res.json({ 
+        tier, 
+        stake, 
+        candidates,
+        totalLegs: todayLegs.length,
+        message: `Generated ${candidates.length} jackpot candidates for $${tier}` 
+      });
+    } catch (error) {
+      console.error("Error building jackpot candidates:", error);
+      res.status(500).json({ message: "Failed to build jackpot candidates" });
     }
   });
 

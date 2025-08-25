@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Shuffle, Sparkles, Play, Pause, RotateCcw } from "lucide-react";
+import { Shuffle, Sparkles, Play, Pause, RotateCcw, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useElitePlayers } from "@/hooks/useSportsData";
+import JackpotButton from "./JackpotButton";
 
 interface LotteryParlayBuilderProps {
   selectedSport: string;
@@ -20,6 +22,7 @@ interface FlashingPick {
 }
 
 export function LotteryParlayBuilder({ selectedSport }: LotteryParlayBuilderProps) {
+  const [selectedStake, setSelectedStake] = useState(10);
   const { data: elitePlayers } = useElitePlayers(selectedSport, 25);
   const [isFlashing, setIsFlashing] = useState(false);
   const [currentPicks, setCurrentPicks] = useState<FlashingPick[]>([]);
@@ -119,22 +122,95 @@ export function LotteryParlayBuilder({ selectedSport }: LotteryParlayBuilderProp
     return Math.round(totalOdds * 10); // Base $10 bet
   };
 
+  // Handle jackpot candidate selection
+  const handleJackpotLockIn = (candidate: any) => {
+    console.log('Jackpot candidate selected:', candidate);
+    // You can add logic here to add to bet slip or show details
+  };
+
   return (
     <div className="space-y-6">
-      {/* Lottery Controls */}
-      <Card className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 border-purple-500">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Sparkles className="h-6 w-6 text-purple-400" />
-            <span>Lottery Parlay Builder</span>
-            {isFlashing && (
-              <Badge className="bg-yellow-500 text-black animate-pulse">
-                FLASHING {flashCount}
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Main Builder Tabs */}
+      <Tabs defaultValue="jackpot" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-slate-800">
+          <TabsTrigger 
+            value="jackpot" 
+            className="flex items-center space-x-2 data-[state=active]:bg-red-600"
+            data-testid="tab-jackpot"
+          >
+            <Trophy className="h-4 w-4" />
+            <span>Jackpot Builder</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="custom" 
+            className="flex items-center space-x-2 data-[state=active]:bg-purple-600"
+            data-testid="tab-custom"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>Custom Lottery</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="jackpot" className="mt-6">
+          {/* Stake Selector */}
+          <Card className="bg-slate-800 border-slate-700 mb-6">
+            <CardHeader>
+              <CardTitle>Select Your Stake</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {[10, 25, 50, 100].map(stake => (
+                  <Button
+                    key={stake}
+                    variant={selectedStake === stake ? "default" : "outline"}
+                    onClick={() => setSelectedStake(stake)}
+                    className={selectedStake === stake ? "bg-green-600" : "border-slate-600"}
+                  >
+                    ${stake}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Jackpot Tiers */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <JackpotButton 
+              tier="50k" 
+              stake={selectedStake} 
+              selectedSport={selectedSport}
+              onLockIn={handleJackpotLockIn}
+            />
+            <JackpotButton 
+              tier="100k" 
+              stake={selectedStake} 
+              selectedSport={selectedSport}
+              onLockIn={handleJackpotLockIn}
+            />
+            <JackpotButton 
+              tier="1M" 
+              stake={selectedStake} 
+              selectedSport={selectedSport}
+              onLockIn={handleJackpotLockIn}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="custom" className="mt-6">
+          {/* Original Custom Lottery */}
+          <Card className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 border-purple-500">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Sparkles className="h-6 w-6 text-purple-400" />
+                <span>Custom Lottery Builder</span>
+                {isFlashing && (
+                  <Badge className="bg-yellow-500 text-black animate-pulse">
+                    FLASHING {flashCount}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
           <div className="flex flex-wrap gap-4 items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -291,6 +367,8 @@ export function LotteryParlayBuilder({ selectedSport }: LotteryParlayBuilderProp
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
