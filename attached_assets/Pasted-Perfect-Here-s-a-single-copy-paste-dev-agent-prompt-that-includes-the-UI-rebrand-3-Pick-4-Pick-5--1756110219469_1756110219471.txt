@@ -1,0 +1,184 @@
+Perfect. Here’s a single, copy-paste dev/agent prompt that includes the UI rebrand, 3-Pick/4-Pick/5-Pick behavior, Top-10/Top-20 pools, swipe/shuffle, reasons modal, teams + props, and keeps the “Million-Dollar Parlay” button as the shiny magnet.
+
+⸻
+
+UNIVERSAL BUILD PROMPT — Parlay Builder Rebrand + Functionality
+
+Goal: Ship a working Parlay Builder with branded presets 3-Pick / 4-Pick / 5-Pick that swipe through random combos drawn from today’s Top 10/Top 20 picks (teams and props). Keep the Million-Dollar Parlay button as a separate call-to-action (slot-machine animation) that builds a candidate parlay whose projected payout ≥ $1,000,000 for the chosen stake.
+
+0) Rebrand (exact labels, exact order)
+	•	Rename the Parlay page header to: “3-Pick / 4-Pick / 5-Pick Builder”.
+	•	Primary preset buttons (left→right): 3-Pick, 4-Pick, 5-Pick.
+	•	Add a pool size toggle: Top 10 | Top 20 (default = Top 20).
+	•	Keep and display the shiny CTA below presets: “Million-Dollar Parlay” (slot-machine style).
+
+1) Data contract (used everywhere)
+
+// shared/types.ts
+export type Market =
+  | 'TEAM_MONEYLINE' | 'TEAM_SPREAD' | 'TEAM_TOTAL'
+  | 'PLAYER_TD' | 'PLAYER_HR' | 'PLAYER_RBI' | 'PLAYER_HITS'
+  | 'PLAYER_POINTS' | 'PLAYER_ASSISTS' | 'PLAYER_REBOUNDS';
+
+export type PickLeg = {
+  id: string;
+  league: 'MLB'|'NFL'|'NBA';
+  gameId: string;
+  teamId?: string;
+  playerId?: string;
+  market: Market;
+  selection: string;          // e.g., "ATL ML", "Acuna Jr. o1.5 TB"
+  priceAmerican: number;
+  priceDecimal: number;       // used for payout math
+  kickOrFirstPitchISO: string;
+  confidence: number;         // 0–100
+  reason: string;             // short justification (1–3 sentences)
+  riskFlags?: string[];       // ['injury','rain','back-to-back'] → exclude
+  source: 'model'|'analyst'|'mixed';
+  createdAt: string;
+};
+
+2) Backend — seed Top picks every morning (and hourly on game days)
+	•	Build and store Top 20 lists per market (teams + the prop categories above), ordered by confidence DESC, then priceDecimal DESC.
+	•	If fewer than 20 valid for a market, store what exists (never return null).
+
+Endpoints (must exist):
+
+// Returns today’s ordered list for a single market or ALL combined
+GET /api/top-picks?pool=10|20&market=ALL|TEAM_MONEYLINE|TEAM_SPREAD|TEAM_TOTAL|PLAYER_TD|PLAYER_HR|...
+
+// For convenience (optional): everything keyed by market
+GET /api/top-picks/all
+
+3) Frontend — 3-Pick / 4-Pick / 5-Pick presets with swipe/shuffle
+	•	Tapping 3-Pick (or 4-Pick / 5-Pick) builds a random combo sampled without replacement from the chosen pool (Top 10 or Top 20) and current market filter (default ALL).
+	•	Swipe (or Shuffle) regenerates a new random combo from the same pool.
+	•	Add to Slip adds the current combo to the bet slip.
+
+Constraints (enforce strictly):
+	•	Exclude legs with riskFlags present.
+	•	No duplicate game within the same combo.
+	•	No duplicate market for the same game within a combo.
+	•	If available valid pool size < presetN, disable that preset with tooltip: “Not enough valid picks today.”
+
+Helper (drop-in):
+
+// utils/random.ts
+export function sampleCombo<T>(
+  pool: T[], size: number, isValid: (sel:T[], cand:T)=>boolean
+): T[] {
+  const idx = [...Array(pool.length).keys()];
+  for (let i=idx.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  const out:T[] = [];
+  for (const k of idx){ const c = pool[k]; if (isValid(out,c)) out.push(c); if (out.length===size) break; }
+  return out;
+}
+
+Component (labels EXACTLY as specified):
+
+// components/ParlayPresets.tsx
+import { useEffect, useState } from "react";
+import { sampleCombo } from "../utils/random";
+import type { Market, PickLeg } from "../../shared/types";
+
+export default function ParlayPresets(){
+  const [market, setMarket] = useState<'ALL'|Market>('ALL');
+  const [poolSize, setPoolSize] = useState<10|20>(20);
+  const [pool, setPool] = useState<PickLeg[]>([]);
+  const [presetN, setPresetN] = useState<3|4|5>(3);
+  const [current, setCurrent] = useState<PickLeg[]>([]);
+
+  useEffect(()=>{ load(); },[market,poolSize]);
+  async function load(){
+    const url = `/api/top-picks?pool=${poolSize}&market=${market}`;
+    const { items } = await (await fetch(url)).json();
+    setPool(items ?? []); setCurrent([]);
+  }
+
+  const isValid = (sel:PickLeg[], cand:PickLeg) =>
+    !(cand.riskFlags?.length) &&
+    !sel.some(x => x.gameId===cand.gameId) &&
+    !sel.some(x => x.gameId===cand.gameId && x.market===cand.market);
+
+  const available = pool.filter(p => isValid([], p)).length;
+  const disabled = (n:3|4|5)=> available < n;
+
+  function build(n:3|4|5){ setPresetN(n); setCurrent(sampleCombo(pool, n, isValid)); }
+  function swipe(){ setCurrent(sampleCombo(pool, presetN, isValid)); }
+  function addToSlip(){
+    if (current.length!==presetN) return alert(`Select ${presetN} legs`);
+    window.dispatchEvent(new CustomEvent('ADD_TO_SLIP', { detail: current }));
+  }
+
+  return (
+    <div className="space-y-3">
+      <h1 className="text-xl font-semibold">3-Pick / 4-Pick / 5-Pick Builder</h1>
+
+      <div className="flex items-center gap-2">
+        <select value={market} onChange={e=>setMarket(e.target.value as any)} className="border rounded px-2 py-1">
+          <option value="ALL">All Markets</option>
+          <option value="TEAM_MONEYLINE">Teams — Moneyline</option>
+          <option value="TEAM_SPREAD">Teams — Spread</option>
+          <option value="TEAM_TOTAL">Teams — Total</option>
+          <option value="PLAYER_TD">Props — TD</option>
+          <option value="PLAYER_HR">Props — HR</option>
+          <option value="PLAYER_RBI">Props — RBI</option>
+          <option value="PLAYER_HITS">Props — Hits</option>
+          <option value="PLAYER_POINTS">Props — Points</option>
+          <option value="PLAYER_ASSISTS">Props — Assists</option>
+          <option value="PLAYER_REBOUNDS">Props — Rebounds</option>
+        </select>
+
+        <div className="flex items-center gap-1">
+          <span className="text-sm">Pool:</span>
+          <button className={`px-2 py-1 rounded ${poolSize===10?'bg-black text-white':'border'}`} onClick={()=>setPoolSize(10)}>Top 10</button>
+          <button className={`px-2 py-1 rounded ${poolSize===20?'bg-black text-white':'border'}`} onClick={()=>setPoolSize(20)}>Top 20</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <button disabled={disabled(3)} onClick={()=>build(3)} className="px-3 py-3 rounded bg-indigo-600 text-white disabled:opacity-40">3-Pick</button>
+        <button disabled={disabled(4)} onClick={()=>build(4)} className="px-3 py-3 rounded bg-indigo-600 text-white disabled:opacity-40">4-Pick</button>
+        <button disabled={disabled(5)} onClick={()=>build(5)} className="px-3 py-3 rounded bg-indigo-600 text-white disabled:opacity-40">5-Pick</button>
+      </div>
+
+      {current.length>0 && (
+        <div className="p-3 border rounded space-y-2">
+          <div className="text-sm text-gray-600">Showing {presetN} picks from Top {poolSize} ({market})</div>
+          <ul className="space-y-1 text-sm">
+            {current.map(p=>(
+              <li key={p.id} className="flex justify-between">
+                <span className="truncate">{p.selection}</span>
+                <button className="text-indigo-600 underline" onClick={()=>alert(p.reason || 'No reason provided')}>Why?</button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2">
+            <button onClick={swipe} className="px-3 py-2 rounded border">Swipe</button>
+            <button onClick={addToSlip} className="px-3 py-2 rounded bg-green-600 text-white">Add to Slip</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+4) Million-Dollar Parlay button (keep shiny CTA)
+	•	Place below the 3-Pick/4-Pick/5-Pick section.
+	•	Label: “Million-Dollar Parlay”.
+	•	When tapped: fetch from /api/jackpot-candidates?tier=1M&stake=10|25|50|100 and slot-machine animate through ~20 candidates for ~1.8s, then lock one; allow Shuffle / Add to Slip.
+	•	Use the previously provided buildJackpotCandidates service (projected payout = stake * Π(decimal_odds) ≥ 1,000,000) with leg count guardrails (e.g., 6–12).
+
+5) Acceptance criteria (must be true before done)
+	1.	3-Pick / 4-Pick / 5-Pick buttons appear in that order, with a Top 10/Top 20 pool toggle and a market filter (All, team markets, prop markets).
+	2.	Tapping a preset instantly shows a combo; Swipe creates a new random combo from the same pool; Add to Slip works.
+	3.	If the valid pool has fewer legs than preset N, the button is disabled with tooltip.
+	4.	Each leg shows a Why? link that surfaces the reason text.
+	5.	Million-Dollar Parlay CTA remains as the shiny, animated builder and functions end-to-end.
+
+6) Data provider + sanity
+	•	Replace any fake/outdated player feeds; use a reliable provider for teams + props (and attach riskFlags where applicable). Don’t ship with empty lists.
+
+⸻
+
+That’s it. Send this prompt to the dev/agent. If you want, I can also generate a quick before/after screenshot brief and a QA checklist you can hand them right after.

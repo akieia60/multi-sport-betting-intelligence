@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ParlayBuilderModal } from "@/components/Parlay/ParlayBuilderModal";
 import { LotteryParlayBuilder } from "@/components/Parlay/LotteryParlayBuilder";
+import ParlayPresets from "@/components/Parlay/ParlayPresets";
+import JackpotButton from "@/components/Parlay/JackpotButton";
 import { useGenerateMultipleParlays, useElitePlayers } from "@/hooks/useSportsData";
 import type { FilterState, GeneratedParlay } from "@/lib/types";
 
@@ -70,8 +72,16 @@ export default function ParlayBuilder({ selectedSport, filters }: ParlayBuilderP
       </div>
 
       {/* Parlay Builder Tabs */}
-      <Tabs defaultValue="lottery" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-slate-800">
+      <Tabs defaultValue="presets" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 bg-slate-800">
+          <TabsTrigger 
+            value="presets" 
+            className="flex items-center space-x-2 data-[state=active]:bg-indigo-600"
+            data-testid="tab-presets"
+          >
+            <TrendingUp className="h-4 w-4" />
+            <span>3/4/5-Pick</span>
+          </TabsTrigger>
           <TabsTrigger 
             value="lottery" 
             className="flex items-center space-x-2 data-[state=active]:bg-purple-600"
@@ -89,6 +99,28 @@ export default function ParlayBuilder({ selectedSport, filters }: ParlayBuilderP
             <span>Advanced Builder</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="presets" className="mt-6 space-y-6">
+          <ParlayPresets selectedSport={selectedSport} />
+          
+          {/* Million-Dollar Parlay CTA */}
+          <div className="border-t border-slate-700 pt-6">
+            <h3 className="text-xl font-semibold text-center mb-4 text-yellow-400">
+              🎰 Million-Dollar Challenge
+            </h3>
+            <div className="max-w-md mx-auto">
+              <JackpotButton 
+                tier="1M" 
+                stake={25} 
+                selectedSport={selectedSport}
+                onLockIn={(candidate) => {
+                  console.log('Million-dollar parlay selected:', candidate);
+                  window.dispatchEvent(new CustomEvent('ADD_TO_SLIP', { detail: candidate.legs }));
+                }}
+              />
+            </div>
+          </div>
+        </TabsContent>
 
         <TabsContent value="lottery" className="mt-6">
           <LotteryParlayBuilder selectedSport={selectedSport} />

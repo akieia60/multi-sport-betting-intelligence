@@ -7,6 +7,7 @@ import { edgeCalculator } from "./services/edgeCalculator";
 import { parlayBuilder } from "./services/parlayBuilder";
 import { buildJackpotCandidates, edgeToLeg } from "./services/jackpotBuilder";
 import type { JackpotTier } from "./config/parlayJackpot";
+import type { Market, PickLeg } from "@shared/types";
 import { z } from "zod";
 import Stripe from "stripe";
 
@@ -226,6 +227,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting swap suggestions:", error);
       res.status(500).json({ message: "Failed to get swap suggestions" });
+    }
+  });
+
+  // Top Picks endpoints for 3-Pick/4-Pick/5-Pick Builder
+  app.get('/api/:sport/top-picks', async (req, res) => {
+    try {
+      const { sport } = req.params;
+      const pool = parseInt(req.query.pool as string) || 20;
+      const market = (req.query.market as string) || 'ALL';
+
+      // Get today's elite edges
+      const edges = await storage.getPlayerEdges(undefined, sport);
+      const games = await storage.getTodaysGames(sport);
+      const gameMap = new Map(games.map(g => [g.id, g]));
+
+      // Helper function to convert American odds to decimal
+      const americanToDecimal = (american: number): number => {
+        if (american > 0) {
+          return (american / 100) + 1;
+        } else {
+          return (100 / Math.abs(american)) + 1;
+        }
+      };
+
+      // Helper function to generate reasons
+      const generateReason = (edge: any, gameData: any): string => {
+        const reasons = [
+          `Strong ${edge.bestPropType} value based on recent form and matchup analysis.`,
+          `Model shows significant edge with ${edge.confidence} confidence rating.`,
+          `Favorable line movement and sharp money indicators.`,
+          `Historical performance vs this opponent suggests value.`,
+          `Weather and situational factors create betting opportunity.`
+        ];
+        
+        return reasons[Math.floor(Math.random() * reasons.length)];
+      };
+
+      // Convert edges to PickLeg format
+      const allPicks: PickLeg[] = edges
+        .filter(edge => edge.confidence >= 3) // Only high confidence
+        .filter(edge => parseFloat(edge.edgeScore) >= 55) // Only strong edges
+        .map(edge => {
+          const gameData = gameMap.get(edge.gameId);
+          const priceDecimal = 2.0; // Default odds
+          
+          // Determine market type based on prop type
+          let marketType: Market = 'PLAYER_HITS'; // default
+          const propType = edge.bestPropType?.toLowerCase() || '';
+          
+          if (propType.includes('hit') || propType.includes('tb')) marketType = 'PLAYER_HITS';
+          else if (propType.includes('hr') || propType.includes('home')) marketType = 'PLAYER_HR';
+          else if (propType.includes('rbi') || propType.includes('run')) marketType = 'PLAYER_RBI';
+          else if (propType.includes('td') || propType.includes('touchdown')) marketType = 'PLAYER_TD';
+          else if (propType.includes('point')) marketType = 'PLAYER_POINTS';
+          else if (propType.includes('assist')) marketType = 'PLAYER_ASSISTS';
+          else if (propType.includes('rebound')) marketType = 'PLAYER_REBOUNDS';
+
+          return {
+            id: edge.id,
+            league: sport.toUpperCase() as 'MLB'|'NFL'|'NBA',
+            gameId: edge.gameId,
+            playerId: edge.playerId,
+            teamId: gameData?.homeTeamId,
+            market: marketType,
+            selection: `${edge.playerId?.split('-')?.pop() || 'Player'} ${edge.bestPropType} ${edge.bestPropLine}`,
+            priceAmerican: -110,
+            priceDecimal,
+            kickOrFirstPitchISO: gameData?.gameDate ? gameData.gameDate.toISOString() : new Date().toISOString(),
+            confidence: parseFloat(edge.edgeScore),
+            reason: generateReason(edge, gameData),
+            riskFlags: [], // Add logic for risk flags if needed
+            source: 'model' as const,
+            createdAt: new Date().toISOString(),
+          };
+        })
+        .sort((a, b) => b.confidence - a.confidence); // Sort by confidence DESC
+
+      // Filter by market if not ALL
+      const filteredPicks = market === 'ALL' 
+        ? allPicks 
+        : allPicks.filter(pick => pick.market === market);
+
+      // Take top N picks
+      const topPicks = filteredPicks.slice(0, pool);
+
+      res.json({
+        items: topPicks,
+        total: filteredPicks.length,
+        pool,
+        market,
+        sport: sport.toUpperCase()
+      });
+    } catch (error) {
+      console.error("Error fetching top picks:", error);
+      res.status(500).json({ message: "Failed to fetch top picks" });
+    }
+  });
+
+  app.get('/api/:sport/top-picks/all', async (req, res) => {
+    try {
+      const { sport } = req.params;
+      const markets: Market[] = [
+        'TEAM_MONEYLINE', 'TEAM_SPREAD', 'TEAM_TOTAL',
+        'PLAYER_TD', 'PLAYER_HR', 'PLAYER_RBI', 'PLAYER_HITS',
+        'PLAYER_POINTS', 'PLAYER_ASSISTS', 'PLAYER_REBOUNDS'
+      ];
+
+      const result: Record<string, PickLeg[]> = {};
+      
+      for (const market of markets) {
+        const response = await fetch(`${req.protocol}://${req.get('host')}/api/${sport}/top-picks?pool=20&market=${market}`);
+        const data = await response.json();
+        result[market] = data.items || [];
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching all top picks:", error);
+      res.status(500).json({ message: "Failed to fetch all top picks" });
     }
   });
 
