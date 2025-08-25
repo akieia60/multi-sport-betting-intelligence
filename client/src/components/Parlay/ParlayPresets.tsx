@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shuffle, Plus, HelpCircle } from "lucide-react";
+import { Shuffle, Plus, HelpCircle, ShoppingCart } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ParlayPresetsProps {
@@ -20,6 +21,7 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
   const [presetN, setPresetN] = useState<3 | 4 | 5>(3);
   const [current, setCurrent] = useState<PickLeg[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showOddsShopping, setShowOddsShopping] = useState(false);
 
   useEffect(() => { 
     load(); 
@@ -63,6 +65,28 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
 
   const available = pool.filter(p => isValid([], p)).length;
   const disabled = (n: 3 | 4 | 5) => available < n;
+
+  // Generate mock sportsbook odds for odds shopping
+  const generateSportsbookOdds = (baseOdds: number) => {
+    const sportsbooks = [
+      { name: "DraftKings", color: "bg-green-600" },
+      { name: "FanDuel", color: "bg-blue-600" },
+      { name: "BetMGM", color: "bg-yellow-600" },
+      { name: "Caesars", color: "bg-purple-600" },
+      { name: "PointsBet", color: "bg-red-600" }
+    ];
+
+    return sportsbooks.map(book => {
+      // Add some variance to the odds (-50 to +100 from base)
+      const variance = Math.floor(Math.random() * 150) - 50;
+      const adjustedOdds = Math.max(baseOdds + variance, -500); // Don't go below -500
+      
+      return {
+        ...book,
+        odds: adjustedOdds
+      };
+    }).sort((a, b) => b.odds - a.odds); // Sort by best odds first
+  };
 
   function build(n: 3 | 4 | 5) { 
     setPresetN(n); 
@@ -141,6 +165,22 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
                   ⭐ Best Picks
                 </Button>
               </div>
+            </div>
+
+            {/* Odds Shopping Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm text-slate-300 mb-2">
+                  <ShoppingCart className="h-4 w-4 inline mr-1" />
+                  Odds Shopping
+                </label>
+                <p className="text-xs text-slate-500">Compare prices across multiple sportsbooks</p>
+              </div>
+              <Switch
+                checked={showOddsShopping}
+                onCheckedChange={setShowOddsShopping}
+                data-testid="toggle-odds-shopping"
+              />
             </div>
 
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
@@ -291,46 +331,92 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
           <CardContent className="space-y-4">
             {/* Pick List */}
             <div className="space-y-3">
-              {current.map((pick, index) => (
-                <div 
-                  key={pick.id}
-                  className="flex items-center justify-between p-4 bg-slate-700 rounded-lg border-l-4 border-blue-500"
-                >
-                  <div className="flex-1">
-                    <div className="font-semibold text-white text-lg">
-                      {index + 1}. {pick.selection}
-                    </div>
-                    <div className="text-sm text-slate-400 mt-1">
-                      {pick.league} • {pick.market.replace('_', ' ')} • Confidence: {Math.round(pick.confidence)}%
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="text-right">
-                      <Badge className={`text-lg font-bold px-3 py-1 ${
-                        pick.priceAmerican >= 400 ? 'bg-red-600 text-white' : 
-                        pick.priceAmerican <= 200 ? 'bg-green-600 text-white' : 
-                        'bg-blue-600 text-white'
-                      }`}>
-                        {pick.priceAmerican > 0 ? `+${pick.priceAmerican}` : pick.priceAmerican}
-                      </Badge>
-                      <div className="text-xs text-slate-400 mt-1">
-                        {pick.priceAmerican >= 400 ? '🎯 Longshot' : 
-                         pick.priceAmerican <= 200 ? '🛡️ Safe' : 
-                         '⚡ Balanced'}
+              {current.map((pick, index) => {
+                const sportsbookOdds = showOddsShopping ? generateSportsbookOdds(pick.priceAmerican) : [];
+                const bestOdds = sportsbookOdds.length > 0 ? sportsbookOdds[0] : null;
+
+                return (
+                  <div 
+                    key={pick.id}
+                    className="p-4 bg-slate-700 rounded-lg border-l-4 border-blue-500"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="font-semibold text-white text-lg">
+                          {index + 1}. {pick.selection}
+                        </div>
+                        <div className="text-sm text-slate-400 mt-1">
+                          {pick.league} • {pick.market.replace('_', ' ')} • Confidence: {Math.round(pick.confidence)}%
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        {!showOddsShopping && (
+                          <div className="text-right">
+                            <Badge className={`text-lg font-bold px-3 py-1 ${
+                              pick.priceAmerican >= 400 ? 'bg-red-600 text-white' : 
+                              pick.priceAmerican <= 200 ? 'bg-green-600 text-white' : 
+                              'bg-blue-600 text-white'
+                            }`}>
+                              {pick.priceAmerican > 0 ? `+${pick.priceAmerican}` : pick.priceAmerican}
+                            </Badge>
+                            <div className="text-xs text-slate-400 mt-1">
+                              {pick.priceAmerican >= 400 ? '🎯 Longshot' : 
+                               pick.priceAmerican <= 200 ? '🛡️ Safe' : 
+                               '⚡ Balanced'}
+                            </div>
+                          </div>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => showReason(pick)}
+                          className="text-indigo-400 hover:text-indigo-300 h-auto p-1"
+                          data-testid={`button-reason-${index}`}
+                        >
+                          <HelpCircle className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => showReason(pick)}
-                      className="text-indigo-400 hover:text-indigo-300 h-auto p-1"
-                      data-testid={`button-reason-${index}`}
-                    >
-                      <HelpCircle className="h-4 w-4" />
-                    </Button>
+
+                    {/* Odds Shopping Display */}
+                    {showOddsShopping && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-slate-300">
+                            <ShoppingCart className="h-3 w-3 inline mr-1" />
+                            Best Odds:
+                          </span>
+                          {bestOdds && (
+                            <Badge className="bg-green-600 text-white font-bold">
+                              {bestOdds.name}: {bestOdds.odds > 0 ? `+${bestOdds.odds}` : bestOdds.odds}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-5 gap-1 text-xs">
+                          {sportsbookOdds.map((book, bookIndex) => (
+                            <div
+                              key={bookIndex}
+                              className={`p-2 rounded text-center text-white ${
+                                bookIndex === 0 ? 'bg-green-600 ring-2 ring-green-400' : book.color
+                              }`}
+                            >
+                              <div className="font-bold truncate">{book.name}</div>
+                              <div className="text-xs">
+                                {book.odds > 0 ? `+${book.odds}` : book.odds}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="text-xs text-slate-500 text-center">
+                          💰 Save {bestOdds && sportsbookOdds[sportsbookOdds.length - 1] 
+                            ? Math.abs(bestOdds.odds - sportsbookOdds[sportsbookOdds.length - 1].odds) 
+                            : 0} points with best odds
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Action Buttons */}
