@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Layers, Zap, Shield, Target, Sparkles } from "lucide-react";
+import { Layers, Zap, Shield, Target, Sparkles, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
