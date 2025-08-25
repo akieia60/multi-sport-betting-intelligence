@@ -344,23 +344,10 @@ export class SportsDataService {
 
   async getMLBPlayers(teamKey?: string): Promise<Player[]> {
     try {
-      const endpoint = teamKey 
-        ? `/mlb/scores/json/Players/${teamKey}`
-        : "/mlb/scores/json/Players";
-      const players = await this.makeRequest<SportsDataPlayerResponse[]>(endpoint);
-      
-      return players
-        .filter(player => player.Active)
-        .map(player => ({
-          id: `mlb-${player.PlayerID}`,
-          teamId: `mlb-${player.TeamID}`,
-          sportId: "mlb",
-          name: `${player.FirstName} ${player.LastName}`,
-          position: player.Position,
-          isActive: player.Active,
-          jerseyNumber: player.Jersey || null,
-          createdAt: new Date()
-        }));
+      // The Sports DB doesn't have detailed player endpoints like SportsDataIO
+      // For now, return empty array - could implement team-specific player search later
+      console.log("MLB players endpoint not implemented with The Sports DB - using team data for now");
+      return [];
     } catch (error) {
       console.error("Error fetching MLB players:", error);
       return [];
@@ -369,23 +356,10 @@ export class SportsDataService {
 
   async getNFLPlayers(teamKey?: string): Promise<Player[]> {
     try {
-      const endpoint = teamKey 
-        ? `/nfl/scores/json/Players/${teamKey}`
-        : "/nfl/scores/json/Players";
-      const players = await this.makeRequest<SportsDataPlayerResponse[]>(endpoint);
-      
-      return players
-        .filter(player => player.Active)
-        .map(player => ({
-          id: `nfl-${player.PlayerID}`,
-          teamId: `nfl-${player.TeamID}`,
-          sportId: "nfl",
-          name: `${player.FirstName} ${player.LastName}`,
-          position: player.Position,
-          isActive: player.Active,
-          jerseyNumber: player.Jersey || null,
-          createdAt: new Date()
-        }));
+      // The Sports DB doesn't have detailed player endpoints like SportsDataIO  
+      // For now, return empty array - could implement team-specific player search later
+      console.log("NFL players endpoint not implemented with The Sports DB - using team data for now");
+      return [];
     } catch (error) {
       console.error("Error fetching NFL players:", error);
       return [];
@@ -394,23 +368,10 @@ export class SportsDataService {
 
   async getNBAPlayers(teamKey?: string): Promise<Player[]> {
     try {
-      const endpoint = teamKey 
-        ? `/nba/scores/json/Players/${teamKey}`
-        : "/nba/scores/json/Players";
-      const players = await this.makeRequest<SportsDataPlayerResponse[]>(endpoint);
-      
-      return players
-        .filter(player => player.Active)
-        .map(player => ({
-          id: `nba-${player.PlayerID}`,
-          teamId: `nba-${player.TeamID}`,
-          sportId: "nba",
-          name: `${player.FirstName} ${player.LastName}`,
-          position: player.Position,
-          isActive: player.Active,
-          jerseyNumber: player.Jersey || null,
-          createdAt: new Date()
-        }));
+      // The Sports DB doesn't have detailed player endpoints like SportsDataIO
+      // For now, return empty array - could implement team-specific player search later  
+      console.log("NBA players endpoint not implemented with The Sports DB - using team data for now");
+      return [];
     } catch (error) {
       console.error("Error fetching NBA players:", error);
       return [];
