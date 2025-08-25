@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shuffle, Plus, HelpCircle, ShoppingCart } from "lucide-react";
+import { Shuffle, Plus, HelpCircle, ShoppingCart, TrendingUp, Target, Calendar } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -22,6 +22,18 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
   const [current, setCurrent] = useState<PickLeg[]>([]);
   const [loading, setLoading] = useState(false);
   const [showOddsShopping, setShowOddsShopping] = useState(false);
+  
+  // $10 to $10K Challenge State
+  const [challengeDay, setChallengeDay] = useState(1);
+  const challengeProgression = [10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240];
+  
+  // Get even money picks (around +100 odds)
+  const getEvenMoneyPicks = () => {
+    return pool.filter(pick => 
+      pick.priceAmerican >= 80 && pick.priceAmerican <= 120 && 
+      pick.confidence >= 75
+    ).slice(0, 3); // Top 3 even money picks
+  };
 
   useEffect(() => { 
     load(); 
@@ -66,7 +78,7 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
   const available = pool.filter(p => isValid([], p)).length;
   const disabled = (n: 3 | 4 | 5) => available < n;
 
-  // Generate mock sportsbook odds for odds shopping
+  // Generate mock sportsbook odds for odds shopping with big discrepancies
   const generateSportsbookOdds = (baseOdds: number) => {
     const sportsbooks = [
       { name: "DraftKings", color: "bg-green-600" },
@@ -76,9 +88,18 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
       { name: "PointsBet", color: "bg-red-600" }
     ];
 
-    return sportsbooks.map(book => {
-      // Add some variance to the odds (-50 to +100 from base)
-      const variance = Math.floor(Math.random() * 150) - 50;
+    return sportsbooks.map((book, index) => {
+      let variance;
+      
+      // Sometimes create big discrepancies (30% chance)
+      if (Math.random() < 0.3) {
+        // Big discrepancy: -200 to +300 from base
+        variance = Math.floor(Math.random() * 500) - 200;
+      } else {
+        // Normal variance: -50 to +100 from base  
+        variance = Math.floor(Math.random() * 150) - 50;
+      }
+      
       const adjustedOdds = Math.max(baseOdds + variance, -500); // Don't go below -500
       
       return {
@@ -86,6 +107,14 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
         odds: adjustedOdds
       };
     }).sort((a, b) => b.odds - a.odds); // Sort by best odds first
+  };
+
+  // Check for big discrepancies in odds
+  const hasBigDiscrepancy = (oddsArray: any[]) => {
+    if (oddsArray.length < 2) return false;
+    const highest = oddsArray[0].odds;
+    const lowest = oddsArray[oddsArray.length - 1].odds;
+    return Math.abs(highest - lowest) >= 100; // 100+ point difference
   };
 
   function build(n: 3 | 4 | 5) { 
@@ -407,7 +436,12 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
                             </div>
                           ))}
                         </div>
-                        <div className="text-xs text-slate-500 text-center">
+                        <div className={`text-xs text-center ${
+                          hasBigDiscrepancy(sportsbookOdds) 
+                            ? 'text-yellow-400 font-bold animate-pulse' 
+                            : 'text-slate-500'
+                        }`}>
+                          {hasBigDiscrepancy(sportsbookOdds) && "🚨 BIG DISCREPANCY! "}
                           💰 Save {bestOdds && sportsbookOdds[sportsbookOdds.length - 1] 
                             ? Math.abs(bestOdds.odds - sportsbookOdds[sportsbookOdds.length - 1].odds) 
                             : 0} points with best odds
@@ -442,6 +476,139 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
           </CardContent>
         </Card>
       )}
+      {/* $10 to $10K Challenge */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold text-white flex items-center">
+            <TrendingUp className="h-5 w-5 mr-2 text-green-400" />
+            $10 to $10K Challenge
+          </CardTitle>
+          <p className="text-slate-400 text-sm">Double your money daily with even odds picks (+100)</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Challenge Progress */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-300">
+                <Calendar className="h-4 w-4 inline mr-1" />
+                Day {challengeDay} of 10
+              </span>
+              <div className="text-right">
+                <div className="text-lg font-bold text-green-400">
+                  ${challengeProgression[challengeDay - 1]}
+                </div>
+                <div className="text-xs text-slate-500">
+                  Target: ${challengeProgression[challengeDay] || "10,240"}
+                </div>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-700 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-green-600 to-green-400 h-2 rounded-full transition-all"
+                style={{ width: `${(challengeDay / 10) * 100}%` }}
+              />
+            </div>
+
+            {/* Challenge Progression Display */}
+            <div className="grid grid-cols-5 gap-1 text-xs">
+              {challengeProgression.slice(0, 10).map((amount, index) => (
+                <div
+                  key={index}
+                  className={`p-2 rounded text-center ${
+                    index < challengeDay - 1
+                      ? "bg-green-600 text-white"
+                      : index === challengeDay - 1
+                      ? "bg-yellow-600 text-white ring-2 ring-yellow-400"
+                      : "bg-slate-600 text-slate-400"
+                  }`}
+                >
+                  <div className="font-bold">Day {index + 1}</div>
+                  <div>${amount}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Today's Even Money Picks */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-white flex items-center">
+                <Target className="h-4 w-4 mr-1 text-blue-400" />
+                Today's Even Money Picks
+              </h4>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setChallengeDay(Math.max(1, challengeDay - 1))}
+                  disabled={challengeDay <= 1}
+                  className="border-slate-600 text-slate-300"
+                  data-testid="button-challenge-prev"
+                >
+                  ← Prev Day
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setChallengeDay(Math.min(10, challengeDay + 1))}
+                  disabled={challengeDay >= 10}
+                  className="border-slate-600 text-slate-300"
+                  data-testid="button-challenge-next"
+                >
+                  Next Day →
+                </Button>
+              </div>
+            </div>
+
+            {getEvenMoneyPicks().length > 0 ? (
+              <div className="space-y-2">
+                {getEvenMoneyPicks().map((pick, index) => (
+                  <div
+                    key={pick.id}
+                    className="p-3 bg-slate-700 rounded-lg border border-green-600/30"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-semibold text-white">
+                          {pick.selection}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {pick.league} • Confidence: {Math.round(pick.confidence)}%
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge className="bg-green-600 text-white font-bold text-base px-3 py-1">
+                          {pick.priceAmerican > 0 ? `+${pick.priceAmerican}` : pick.priceAmerican}
+                        </Badge>
+                        <div className="text-xs text-green-400 mt-1">
+                          Even Money ⚡
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                <div className="text-center p-4 bg-gradient-to-r from-green-900/20 to-blue-900/20 rounded-lg border border-green-600/20">
+                  <div className="text-lg font-bold text-green-400">
+                    Win Today: ${challengeProgression[challengeDay - 1]} → ${challengeProgression[challengeDay] || "10,240"}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    Pick one even money bet and double your money!
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                <Target className="h-8 w-8 mx-auto mb-2" />
+                <div>No even money picks available right now</div>
+                <div className="text-xs">Refresh to see new picks</div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
