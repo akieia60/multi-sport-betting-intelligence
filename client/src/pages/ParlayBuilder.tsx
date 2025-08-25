@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { Layers, Zap, Shield, Target } from "lucide-react";
+import { Layers, Zap, Shield, Target, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ParlayBuilderModal } from "@/components/Parlay/ParlayBuilderModal";
+import { LotteryParlayBuilder } from "@/components/Parlay/LotteryParlayBuilder";
 import { useGenerateMultipleParlays, useElitePlayers } from "@/hooks/useSportsData";
 import type { FilterState, GeneratedParlay } from "@/lib/types";
 
@@ -62,19 +64,49 @@ export default function ParlayBuilder({ selectedSport, filters }: ParlayBuilderP
             <span data-testid="page-title">Parlay Builder</span>
           </h2>
           <p className="text-slate-400 mt-1">
-            Build optimized parlays with advanced analytics and edge scoring
+            Build optimized parlays with lottery-style randomization and advanced analytics
           </p>
         </div>
-        <Button
-          onClick={handleGenerateParlays}
-          disabled={generateMutation.isPending || !elitePlayers || elitePlayers.length < 4}
-          className="bg-green-600 hover:bg-green-700"
-          data-testid="button-generate-parlays"
-        >
-          <Layers className="h-4 w-4 mr-2" />
-          {generateMutation.isPending ? "Generating..." : "Generate Parlays"}
-        </Button>
       </div>
+
+      {/* Parlay Builder Tabs */}
+      <Tabs defaultValue="lottery" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-slate-800">
+          <TabsTrigger 
+            value="lottery" 
+            className="flex items-center space-x-2 data-[state=active]:bg-purple-600"
+            data-testid="tab-lottery-builder"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>Lottery Builder</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="advanced" 
+            className="flex items-center space-x-2 data-[state=active]:bg-green-600"
+            data-testid="tab-advanced-builder"
+          >
+            <Layers className="h-4 w-4" />
+            <span>Advanced Builder</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="lottery" className="mt-6">
+          <LotteryParlayBuilder selectedSport={selectedSport} />
+        </TabsContent>
+
+        <TabsContent value="advanced" className="mt-6 space-y-6">
+          {/* Advanced Builder Content */}
+          <div className="flex justify-end">
+            <Button
+              onClick={handleGenerateParlays}
+              disabled={generateMutation.isPending || !elitePlayers || elitePlayers.length < 4}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="button-generate-parlays"
+            >
+              <Layers className="h-4 w-4 mr-2" />
+              {generateMutation.isPending ? "Generating..." : "Generate Parlays"}
+            </Button>
+          </div>
 
       {/* Prerequisites Check */}
       <Card className="bg-slate-800 border-slate-700">
@@ -325,6 +357,8 @@ export default function ParlayBuilder({ selectedSport, filters }: ParlayBuilderP
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Parlay Builder Modal */}
       <ParlayBuilderModal
