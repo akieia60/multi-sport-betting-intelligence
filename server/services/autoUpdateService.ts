@@ -66,6 +66,12 @@ class AutoUpdateService {
   private async processOddsToGames(oddsData: any[], sport: string) {
     for (const game of oddsData) {
       try {
+        // Guard against undefined team names
+        if (!game.home_team || !game.away_team || !game.id) {
+          console.log(`Skipping invalid game data for ${sport}:`, game.id);
+          continue;
+        }
+        
         const homeTeamId = `${sport}-${game.home_team.replace(/\s+/g, '')}`;
         const awayTeamId = `${sport}-${game.away_team.replace(/\s+/g, '')}`;
         

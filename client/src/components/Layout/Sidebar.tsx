@@ -73,8 +73,8 @@ export function Sidebar({ selectedSport, filters, onFiltersChange }: SidebarProp
             
             return (
               <Link key={item.name} href={item.href}>
-                <a
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                <div
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
                     isActive
                       ? "bg-blue-600 text-white"
                       : "text-slate-300 hover:bg-slate-700 hover:text-white"
@@ -83,7 +83,7 @@ export function Sidebar({ selectedSport, filters, onFiltersChange }: SidebarProp
                 >
                   <Icon className="h-4 w-4" />
                   <span>{item.name}</span>
-                </a>
+                </div>
               </Link>
             );
           })}

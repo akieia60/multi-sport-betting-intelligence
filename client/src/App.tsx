@@ -23,7 +23,7 @@ import { Sidebar } from "@/components/Layout/Sidebar";
 import type { FilterState } from "@/lib/types";
 
 function Router() {
-  const [selectedSport, setSelectedSport] = useState("mlb");
+  const [selectedSport, setSelectedSport] = useState("nfl");
   const [filters, setFilters] = useState<FilterState>({
     usageRate: "all",
     opponentRank: "all", 

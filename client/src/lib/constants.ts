@@ -1,17 +1,17 @@
 export const SPORTS = {
-  MLB: {
-    id: "mlb",
-    name: "MLB",
-    displayName: "Major League Baseball",
-    colorCode: "#3B82F6",
-    icon: "fas fa-baseball-ball"
-  },
   NFL: {
     id: "nfl", 
     name: "NFL",
     displayName: "National Football League",
     colorCode: "#10B981",
     icon: "fas fa-football-ball"
+  },
+  MLB: {
+    id: "mlb",
+    name: "MLB",
+    displayName: "Major League Baseball",
+    colorCode: "#3B82F6",
+    icon: "fas fa-baseball-ball"
   },
   NBA: {
     id: "nba",
