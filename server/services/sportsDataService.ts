@@ -47,12 +47,26 @@ interface SportsDataPlayerResponse {
   Active: boolean;
 }
 
+interface BettingOdds {
+  bookmaker: string;
+  moneyline?: { home: number; away: number };
+  spread?: { home: number; away: number; points: number };
+  total?: { over: number; under: number; points: number };
+  lastUpdated: Date;
+}
+
 export class SportsDataService {
   private readonly sportsDbUrl = "https://www.thesportsdb.com/api/v1/json/3";
   private readonly weatherUrl = "https://api.open-meteo.com/v1";
+  private readonly oddsApiUrl = "https://api.the-odds-api.com/v4";
+  private readonly oddsApiKey = process.env.ODDS_API_KEY;
 
   constructor() {
-    console.log("🏟️ Using The Sports DB (Free) + Open-Meteo Weather");
+    if (this.oddsApiKey) {
+      console.log("🎯 Using The Sports DB (Free) + Open-Meteo Weather + The Odds API (Live Betting)");
+    } else {
+      console.log("🏟️ Using The Sports DB (Free) + Open-Meteo Weather");
+    }
   }
 
   private async makeRequest<T>(url: string, errorContext?: string): Promise<T> {
@@ -74,6 +88,80 @@ export class SportsDataService {
     return data;
   }
 
+  // The Odds API Integration
+  async getBettingOdds(sport: 'baseball_mlb' | 'americanfootball_nfl' | 'basketball_nba'): Promise<BettingOdds[]> {
+    if (!this.oddsApiKey) {
+      console.log("⚠️ Odds API key not configured - skipping betting odds");
+      return [];
+    }
+
+    try {
+      const url = `${this.oddsApiUrl}/sports/${sport}/odds?regions=us&markets=h2h,spreads,totals&oddsFormat=american&apiKey=${this.oddsApiKey}`;
+      const response = await this.makeRequest<any>(url, `${sport.toUpperCase()} Betting Odds`);
+      
+      if (!Array.isArray(response)) {
+        console.log(`No betting odds found for ${sport}`);
+        return [];
+      }
+
+      const allOdds: BettingOdds[] = [];
+      
+      response.forEach((game: any) => {
+        if (game.bookmakers && Array.isArray(game.bookmakers)) {
+          game.bookmakers.forEach((bookmaker: any) => {
+            const odds: BettingOdds = {
+              bookmaker: bookmaker.title || bookmaker.key,
+              lastUpdated: new Date()
+            };
+
+            if (bookmaker.markets && Array.isArray(bookmaker.markets)) {
+              bookmaker.markets.forEach((market: any) => {
+                if (market.key === 'h2h' && market.outcomes) {
+                  // Moneyline odds
+                  const home = market.outcomes.find((o: any) => o.name === game.home_team);
+                  const away = market.outcomes.find((o: any) => o.name === game.away_team);
+                  if (home && away) {
+                    odds.moneyline = { home: home.price, away: away.price };
+                  }
+                } else if (market.key === 'spreads' && market.outcomes) {
+                  // Spread odds
+                  const home = market.outcomes.find((o: any) => o.name === game.home_team);
+                  const away = market.outcomes.find((o: any) => o.name === game.away_team);
+                  if (home && away && home.point !== undefined) {
+                    odds.spread = { 
+                      home: home.price, 
+                      away: away.price, 
+                      points: Math.abs(home.point)
+                    };
+                  }
+                } else if (market.key === 'totals' && market.outcomes) {
+                  // Total (Over/Under) odds
+                  const over = market.outcomes.find((o: any) => o.name === 'Over');
+                  const under = market.outcomes.find((o: any) => o.name === 'Under');
+                  if (over && under && over.point !== undefined) {
+                    odds.total = {
+                      over: over.price,
+                      under: under.price,
+                      points: over.point
+                    };
+                  }
+                }
+              });
+            }
+
+            allOdds.push(odds);
+          });
+        }
+      });
+
+      console.log(`🎯 Fetched ${allOdds.length} betting odds from ${response.length} games`);
+      return allOdds;
+    } catch (error) {
+      console.error(`Error fetching betting odds for ${sport}:`, error);
+      return [];
+    }
+  }
+
   async getWeatherForGame(latitude: number, longitude: number, date?: string): Promise<any> {
     try {
       const dateStr = date || new Date().toISOString().split('T')[0];
@@ -91,6 +179,9 @@ export class SportsDataService {
       // The Sports DB - Get current season MLB games
       const url = `${this.sportsDbUrl}/eventsseason.php?id=4424&s=2024`;
       const response = await this.makeRequest<any>(url, 'MLB Games');
+      
+      // Also fetch live betting odds
+      const bettingOdds = await this.getBettingOdds('baseball_mlb');
       
       if (!response.events) {
         console.log("No MLB events found in response");
@@ -129,6 +220,7 @@ export class SportsDataService {
         };
       }));
       
+      console.log(`🎯 MLB: ${gamesWithWeather.length} games, ${bettingOdds.length} betting lines available`);
       return gamesWithWeather;
     } catch (error) {
       console.error("Error fetching MLB games:", error);
@@ -173,6 +265,9 @@ export class SportsDataService {
       const url = `${this.sportsDbUrl}/eventsseason.php?id=4391&s=2024`;
       const response = await this.makeRequest<any>(url, 'NFL Games');
       
+      // Also fetch live betting odds
+      const bettingOdds = await this.getBettingOdds('americanfootball_nfl');
+      
       if (!response.events) {
         console.log("No NFL events found in response");
         return [];
@@ -210,6 +305,7 @@ export class SportsDataService {
         };
       }));
       
+      console.log(`🏈 NFL: ${gamesWithWeather.length} games, ${bettingOdds.length} betting lines available`);
       return gamesWithWeather;
     } catch (error) {
       console.error("Error fetching NFL games:", error);
@@ -222,6 +318,9 @@ export class SportsDataService {
       // The Sports DB - Get NBA season games
       const url = `${this.sportsDbUrl}/eventsseason.php?id=4387&s=2024`;
       const response = await this.makeRequest<any>(url, 'NBA Games');
+      
+      // Also fetch live betting odds
+      const bettingOdds = await this.getBettingOdds('basketball_nba');
       
       if (!response.events) {
         console.log("No NBA events found in response");
@@ -237,7 +336,7 @@ export class SportsDataService {
         return daysDiff <= 14; // Games within last 2 weeks
       }).slice(0, 10);
       
-      return recentGames.map((event: any) => ({
+      const games = recentGames.map((event: any) => ({
         id: `nba-${event.idEvent}`,
         sportId: "nba",
         homeTeamId: `nba-${event.strHomeTeam?.replace(/\s+/g, '')}`,
@@ -249,6 +348,9 @@ export class SportsDataService {
         isCompleted: event.strStatus === "Match Finished",
         lastUpdated: new Date()
       }));
+      
+      console.log(`🏀 NBA: ${games.length} games, ${bettingOdds.length} betting lines available`);
+      return games;
     } catch (error) {
       console.error("Error fetching NBA games:", error);
       return [];
