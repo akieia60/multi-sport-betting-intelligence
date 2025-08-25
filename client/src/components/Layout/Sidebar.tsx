@@ -34,7 +34,6 @@ const navigation = [
   { name: "Game Zone", href: "/game-zone", icon: Zap },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Parlay Builder", href: "/parlay-builder", icon: Layers },
-  { name: "Prop Categories", href: "/prop-categories", icon: Crown },
 ];
 
 export function Sidebar({ selectedSport, filters, onFiltersChange }: SidebarProps) {

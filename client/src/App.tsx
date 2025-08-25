@@ -14,7 +14,6 @@ import TeamIntel from "@/pages/TeamIntel";
 import Analytics from "@/pages/Analytics";
 import ParlayBuilder from "@/pages/ParlayBuilder";
 import GameZone from "@/pages/GameZone";
-import PropCategories from "@/pages/PropCategories";
 import Subscription from "@/pages/Subscription";
 import NotFound from "@/pages/not-found";
 
@@ -96,10 +95,6 @@ function Router() {
               <GameZone 
                 selectedSport={selectedSport}
               />
-            </Route>
-            
-            <Route path="/prop-categories">
-              <PropCategories selectedSport={selectedSport} />
             </Route>
             
             <Route path="/subscription">

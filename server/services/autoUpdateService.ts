@@ -53,14 +53,9 @@ class AutoUpdateService {
       const nflOdds = await sportsDataService.getBettingOdds('americanfootball_nfl');
       await this.processOddsToGames(nflOdds, 'nfl');
       
-      // NBA (handle off-season gracefully)
+      // NBA
       const nbaOdds = await sportsDataService.getBettingOdds('basketball_nba');
-      const validNbaGames = nbaOdds.filter(game => game.home_team && game.away_team && game.id);
-      if (validNbaGames.length === 0) {
-        console.log("🏀 NBA: No active games (off-season)");
-      } else {
-        await this.processOddsToGames(validNbaGames, 'nba');
-      }
+      await this.processOddsToGames(nbaOdds, 'nba');
       
       console.log("✅ Live odds updated");
     } catch (error) {
@@ -73,7 +68,7 @@ class AutoUpdateService {
       try {
         // Guard against undefined team names
         if (!game.home_team || !game.away_team || !game.id) {
-          console.log(`Skipping invalid game data for ${sport}: missing required fields`);
+          console.log(`Skipping invalid game data for ${sport}:`, game.id);
           continue;
         }
         
