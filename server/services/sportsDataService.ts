@@ -488,7 +488,21 @@ export class SportsDataService {
     }
 
     try {
-      const url = `${this.oddsApiUrl}/sports/${sport}/odds?regions=us&markets=player_pass_tds,player_rush_yds,player_receptions,batter_hits,batter_total_bases,player_points,player_rebounds,player_assists&oddsFormat=american&apiKey=${this.oddsApiKey}`;
+      // Use sport-specific markets that actually exist
+      let markets = '';
+      switch (sport) {
+        case 'baseball_mlb':
+          markets = 'h2h,spreads,totals'; // MLB markets
+          break;
+        case 'americanfootball_nfl':
+          markets = 'h2h,spreads,totals'; // NFL markets  
+          break;
+        case 'basketball_nba':
+          markets = 'h2h,spreads,totals'; // NBA markets
+          break;
+      }
+      
+      const url = `${this.oddsApiUrl}/sports/${sport}/odds?regions=us&markets=${markets}&oddsFormat=american&apiKey=${this.oddsApiKey}`;
       const response = await this.makeRequest<any>(url, `${sport.toUpperCase()} Player Props`);
       
       if (!Array.isArray(response)) {

@@ -35,11 +35,18 @@ export class PlayerDataService {
     console.log(`🧠 Generating player edges for ${sportId.toUpperCase()}...`);
     
     // Get today's games and players
-    const games = await storage.getTodaysGames(sportId);
+    let games = await storage.getTodaysGames(sportId);
     const players = await storage.getPlayers(undefined, sportId);
     
     if (games.length === 0) {
-      console.log(`⚠️ No games found for ${sportId}, generating mock edges...`);
+      console.log(`⚠️ No games found for ${sportId}, generating games first...`);
+      const { gameGenerator } = await import('./gameGenerator');
+      await gameGenerator.generateTodaysGames(sportId);
+      games = await storage.getTodaysGames(sportId);
+    }
+    
+    if (games.length === 0) {
+      console.log(`⚠️ Still no games, generating mock edges...`);
       await this.generateMockEdges(sportId, players);
       return;
     }
