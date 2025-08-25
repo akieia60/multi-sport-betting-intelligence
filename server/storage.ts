@@ -8,6 +8,7 @@ import {
   playerEdges,
   attackBoard,
   parlays,
+  futures,
   type User,
   type UpsertUser,
   type Sport,
@@ -18,9 +19,11 @@ import {
   type PlayerEdge,
   type AttackBoard,
   type Parlay,
+  type Future,
   type InsertPlayer,
   type InsertGame,
   type InsertPlayerEdge,
+  type InsertFuture,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, or } from "drizzle-orm";
@@ -66,6 +69,10 @@ export interface IStorage {
   // Parlay operations
   getParlays(userId?: string): Promise<Parlay[]>;
   createParlay(parlay: any): Promise<Parlay>;
+  
+  // Futures operations
+  getFutures(sportId?: string, category?: string): Promise<any[]>;
+  createFuture(future: any): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -286,6 +293,32 @@ export class DatabaseStorage implements IStorage {
       .where(eq(playerEdges.id, id))
       .returning();
     return updated;
+  }
+
+  // Futures operations
+  async getFutures(sportId?: string, category?: string): Promise<Future[]> {
+    let query = db.select().from(futures);
+    
+    if (sportId && category) {
+      query = query.where(and(eq(futures.sportId, sportId), eq(futures.category, category)));
+    } else if (sportId) {
+      query = query.where(eq(futures.sportId, sportId));
+    } else if (category) {
+      query = query.where(eq(futures.category, category));
+    }
+    
+    return await query.orderBy(desc(futures.edgeScore));
+  }
+
+  async createFuture(futureData: InsertFuture): Promise<Future> {
+    try {
+      const [newFuture] = await db.insert(futures).values(futureData).returning();
+      return newFuture;
+    } catch (error) {
+      // If duplicate, try to get existing
+      const [existing] = await db.select().from(futures).where(eq(futures.selection, futureData.selection!));
+      return existing;
+    }
   }
 }
 

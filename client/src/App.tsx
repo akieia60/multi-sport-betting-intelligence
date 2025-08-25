@@ -13,6 +13,7 @@ import AttackBoard from "@/pages/AttackBoard";
 import TeamIntel from "@/pages/TeamIntel";
 import Analytics from "@/pages/Analytics";
 import ParlayBuilder from "@/pages/ParlayBuilder";
+import GameZone from "@/pages/GameZone";
 import Subscription from "@/pages/Subscription";
 import NotFound from "@/pages/not-found";
 
@@ -87,6 +88,12 @@ function Router() {
               <ParlayBuilder 
                 selectedSport={selectedSport}
                 filters={filters}
+              />
+            </Route>
+            
+            <Route path="/game-zone">
+              <GameZone 
+                selectedSport={selectedSport}
               />
             </Route>
             

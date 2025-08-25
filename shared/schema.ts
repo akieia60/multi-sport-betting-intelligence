@@ -122,6 +122,29 @@ export const attackBoard = pgTable("attack_board", {
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
+// Futures betting (MVP, Championships, Season Props)
+export const futures = pgTable("futures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sportId: varchar("sport_id").notNull().references(() => sports.id),
+  category: varchar("category").notNull(), // 'MVP', 'CHAMPION', 'ROOKIE_YEAR', 'SEASON_TOTAL'
+  title: varchar("title").notNull(), // 'NFL MVP', 'Super Bowl Winner'
+  description: text("description"),
+  playerId: varchar("player_id").references(() => players.id),
+  teamId: varchar("team_id").references(() => teams.id),
+  market: varchar("market").notNull(), // 'MVP', 'CHAMPION', 'OVER_UNDER'
+  selection: varchar("selection").notNull(), // 'Lamar Jackson', 'Ravens', 'Over 4500'
+  line: varchar("line"), // For totals like 'Over 4500 yards'
+  odds: integer("odds").notNull(), // American odds
+  priceDecimal: decimal("price_decimal", { precision: 8, scale: 4 }).notNull(),
+  edgeScore: decimal("edge_score", { precision: 5, scale: 2 }).default('0'),
+  confidence: integer("confidence").default(1), // 1-5 scale
+  season: varchar("season").notNull().default('2024-25'),
+  expiresAt: timestamp("expires_at"), // When the bet closes
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const parlays = pgTable("parlays", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
@@ -201,3 +224,6 @@ export type CapperPortal = typeof capperPortals.$inferSelect;
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type InsertGame = z.infer<typeof insertGameSchema>;
 export type InsertPlayerEdge = z.infer<typeof insertPlayerEdgeSchema>;
+
+export type Future = typeof futures.$inferSelect;
+export type InsertFuture = typeof futures.$inferInsert;

@@ -5,12 +5,12 @@ export const JACKPOT_TIERS = {
 } as const;
 
 export const PARLAY_CONSTRAINTS = {
-  minLegs: 6,
+  minLegs: 3,     // Allow 3-pick parlays
   maxLegs: 12,
-  minOdds: 1.3,   // don't allow micro-odds
-  maxOdds: 3.5,   // avoid wild longshots
-  minEdge: 55,    // only use edges our model likes
-  maxPerTeam: 1,  // no stacking same team/market
+  minOdds: 1.2,   // More lenient odds
+  maxOdds: 5.0,   // Allow higher odds
+  minEdge: 25,    // Much more lenient edge requirement  
+  maxPerTeam: 2,  // Allow some team correlation
 };
 
 export type JackpotTier = keyof typeof JACKPOT_TIERS;
