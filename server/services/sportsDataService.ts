@@ -479,6 +479,125 @@ export class SportsDataService {
       return [];
     }
   }
+
+  // Generate players from live betting odds
+  async generatePlayersFromOdds(sport: 'baseball_mlb' | 'americanfootball_nfl' | 'basketball_nba'): Promise<Player[]> {
+    if (!this.oddsApiKey) {
+      console.log("⚠️ Odds API key not configured - generating mock players");
+      return this.generateMockPlayers(sport);
+    }
+
+    try {
+      const url = `${this.oddsApiUrl}/sports/${sport}/odds?regions=us&markets=player_pass_tds,player_rush_yds,player_receptions,batter_hits,batter_total_bases,player_points,player_rebounds,player_assists&oddsFormat=american&apiKey=${this.oddsApiKey}`;
+      const response = await this.makeRequest<any>(url, `${sport.toUpperCase()} Player Props`);
+      
+      if (!Array.isArray(response)) {
+        console.log(`No player props found for ${sport}`);
+        return this.generateMockPlayers(sport);
+      }
+
+      const players: Player[] = [];
+      const seenPlayers = new Set<string>();
+      
+      response.forEach((game: any) => {
+        if (game.bookmakers && Array.isArray(game.bookmakers)) {
+          game.bookmakers.forEach((bookmaker: any) => {
+            if (bookmaker.markets && Array.isArray(bookmaker.markets)) {
+              bookmaker.markets.forEach((market: any) => {
+                if (market.outcomes && Array.isArray(market.outcomes)) {
+                  market.outcomes.forEach((outcome: any) => {
+                    if (outcome.description && !seenPlayers.has(outcome.description)) {
+                      const playerName = outcome.description;
+                      const playerId = `${this.getSportPrefix(sport)}-${playerName.replace(/\s+/g, '').toLowerCase()}`;
+                      const teamId = this.getTeamIdFromGame(game, sport);
+                      
+                      players.push({
+                        id: playerId,
+                        teamId: teamId,
+                        sportId: this.getSportPrefix(sport),
+                        name: playerName,
+                        position: this.getPositionFromMarket(market.key, sport),
+                        jerseyNumber: Math.floor(Math.random() * 99) + 1,
+                        isActive: true,
+                        createdAt: new Date()
+                      });
+                      
+                      seenPlayers.add(playerName);
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+
+      console.log(`🏈 Generated ${players.length} players from live betting props for ${sport}`);
+      return players.slice(0, 100); // Limit to prevent overwhelming
+    } catch (error) {
+      console.error(`Error generating players from odds for ${sport}:`, error);
+      return this.generateMockPlayers(sport);
+    }
+  }
+
+  private generateMockPlayers(sport: 'baseball_mlb' | 'americanfootball_nfl' | 'basketball_nba'): Player[] {
+    const sportPrefix = this.getSportPrefix(sport);
+    const positions = this.getPositionsForSport(sport);
+    const players: Player[] = [];
+    
+    // Generate 50 mock players per sport
+    for (let i = 1; i <= 50; i++) {
+      players.push({
+        id: `${sportPrefix}-player-${i}`,
+        teamId: `${sportPrefix}-team-${Math.floor(Math.random() * 30) + 1}`,
+        sportId: sportPrefix,
+        name: `Player ${i}`,
+        position: positions[Math.floor(Math.random() * positions.length)],
+        jerseyNumber: i,
+        isActive: true,
+        createdAt: new Date()
+      });
+    }
+    
+    return players;
+  }
+
+  private getSportPrefix(sport: 'baseball_mlb' | 'americanfootball_nfl' | 'basketball_nba'): string {
+    switch (sport) {
+      case 'baseball_mlb': return 'mlb';
+      case 'americanfootball_nfl': return 'nfl';
+      case 'basketball_nba': return 'nba';
+    }
+  }
+
+  private getPositionsForSport(sport: 'baseball_mlb' | 'americanfootball_nfl' | 'basketball_nba'): string[] {
+    switch (sport) {
+      case 'baseball_mlb': return ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'P'];
+      case 'americanfootball_nfl': return ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+      case 'basketball_nba': return ['PG', 'SG', 'SF', 'PF', 'C'];
+    }
+  }
+
+  private getPositionFromMarket(marketKey: string, sport: 'baseball_mlb' | 'americanfootball_nfl' | 'basketball_nba'): string {
+    // Infer position from betting market
+    if (marketKey.includes('pass')) return sport === 'americanfootball_nfl' ? 'QB' : 'PG';
+    if (marketKey.includes('rush')) return 'RB';
+    if (marketKey.includes('reception')) return 'WR';
+    if (marketKey.includes('batter') || marketKey.includes('hits')) return 'OF';
+    if (marketKey.includes('points')) return 'SF';
+    if (marketKey.includes('rebounds')) return 'PF';
+    if (marketKey.includes('assists')) return 'PG';
+    
+    const positions = this.getPositionsForSport(sport);
+    return positions[Math.floor(Math.random() * positions.length)];
+  }
+
+  private getTeamIdFromGame(game: any, sport: 'baseball_mlb' | 'americanfootball_nfl' | 'basketball_nba'): string {
+    const sportPrefix = this.getSportPrefix(sport);
+    // Randomly assign to home or away team for now
+    const team = Math.random() > 0.5 ? game.home_team : game.away_team;
+    return `${sportPrefix}-${team?.replace(/\s+/g, '') || 'unknown'}`;
+  }
 }
 
 export const sportsDataService = new SportsDataService();

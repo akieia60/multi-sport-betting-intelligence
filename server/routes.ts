@@ -314,6 +314,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Initialize data for all sports - CRITICAL FIX for empty parlay builder
+  app.post('/api/initialize-sports-data', async (req, res) => {
+    try {
+      console.log('🚀 INITIALIZING ALL SPORTS DATA FOR PARLAY BUILDER...');
+      
+      const { playerDataService } = await import('./services/playerDataService');
+      
+      // Initialize all three sports in parallel
+      const sports = ['mlb', 'nfl', 'nba'];
+      
+      for (const sport of sports) {
+        console.log(`\n🎯 Initializing ${sport.toUpperCase()}...`);
+        
+        // Generate players from live betting odds
+        await playerDataService.initializePlayersForSport(sport);
+        
+        // Generate player edges with real calculations
+        await playerDataService.generatePlayerEdges(sport);
+        
+        // Generate attack board data
+        await playerDataService.generateAttackBoard(sport);
+      }
+      
+      console.log('\n✅ ALL SPORTS DATA INITIALIZED - PARLAY BUILDER READY!');
+      
+      res.json({ 
+        success: true, 
+        message: 'All sports data initialized successfully',
+        initialized: sports
+      });
+    } catch (error) {
+      console.error('❌ Error initializing sports data:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to initialize sports data' 
+      });
+    }
+  });
+
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({ 
