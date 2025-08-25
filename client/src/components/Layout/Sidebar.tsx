@@ -9,7 +9,8 @@ import {
   Layers,
   Search,
   Filter,
-  Crown
+  Crown,
+  Zap
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +31,7 @@ const navigation = [
   { name: "Elite Players", href: "/elite-players", icon: Star },
   { name: "Attack Board", href: "/attack-board", icon: Target },
   { name: "Team Intel", href: "/team-intel", icon: Users },
+  { name: "Game Zone", href: "/game-zone", icon: Zap },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Parlay Builder", href: "/parlay-builder", icon: Layers },
 ];

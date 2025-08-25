@@ -112,6 +112,13 @@ export default function JackpotButton({
 
   function handleLockIn() {
     if (current) {
+      // Create formatted analysis text
+      const analysisText = current.legs.map((leg, i) => 
+        `${i + 1}. ${leg.playerName || leg.selection} ${leg.propType || ''} ${leg.line || ''} (+${Math.round(leg.edgeScore)}) - Odds: +${Math.round((leg.priceDecimal - 1) * 100)}`
+      ).join('\n');
+      
+      navigator.clipboard.writeText(`${tierLabels[tier]} Jackpot Analysis:\n\nProjected Payout: ${formatPayout(current.payout)}\nLegs: ${current.legs.length}\nHit Rate: ${(current.estHitProb * 100).toFixed(1)}%\n\nPicks:\n${analysisText}`);
+      alert('Jackpot analysis copied to clipboard!');
       onLockIn(current);
     }
   }
@@ -259,10 +266,10 @@ export default function JackpotButton({
                 <Button
                   className="flex-1 bg-green-600 hover:bg-green-700"
                   onClick={handleLockIn}
-                  data-testid="button-add-jackpot"
+                  data-testid="button-copy-jackpot"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add to Slip
+                  Copy Analysis
                 </Button>
               </div>
             </div>

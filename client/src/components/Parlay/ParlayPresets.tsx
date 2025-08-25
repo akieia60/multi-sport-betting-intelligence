@@ -58,9 +58,16 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
     setCurrent(sampleCombo(pool, presetN, isValid)); 
   }
 
-  function addToSlip() {
+  function copyAnalysis() {
     if (current.length !== presetN) return alert(`Select ${presetN} legs`);
-    window.dispatchEvent(new CustomEvent('ADD_TO_SLIP', { detail: current }));
+    
+    // Create formatted analysis text for copying
+    const analysisText = current.map((pick, i) => 
+      `${i + 1}. ${pick.selection} (${pick.priceAmerican > 0 ? '+' : ''}${pick.priceAmerican}) - ${pick.reason}`
+    ).join('\n');
+    
+    navigator.clipboard.writeText(`${presetN}-Pick Analysis:\n\n${analysisText}`);
+    alert('Analysis copied to clipboard!');
   }
 
   function showReason(pick: PickLeg) {
@@ -261,12 +268,12 @@ export default function ParlayPresets({ selectedSport }: ParlayPresetsProps) {
                 Swipe
               </Button>
               <Button
-                onClick={addToSlip}
+                onClick={copyAnalysis}
                 className="flex-1 bg-green-600 hover:bg-green-700"
-                data-testid="button-add-to-slip"
+                data-testid="button-copy-analysis"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add to Slip
+                Copy Analysis
               </Button>
             </div>
           </CardContent>

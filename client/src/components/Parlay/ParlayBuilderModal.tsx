@@ -150,10 +150,17 @@ export function ParlayBuilderModal({
         <div className="flex space-x-3">
           <Button 
             className="flex-1 bg-green-600 hover:bg-green-700"
+            onClick={() => {
+              const analysisText = parlay.legs.map((leg, i) => 
+                `${i + 1}. ${leg.playerName} ${leg.propType} ${leg.propLine} (${formatOdds(leg.odds)}) - ${leg.confidence * 20}% confidence`
+              ).join('\n');
+              navigator.clipboard.writeText(`Parlay Analysis (${activeTab}):\n\nTotal Odds: ${formatOdds(parlay.totalOdds)}\nPotential Payout: ${formatPayout(parlay.potentialPayout)}\nConfidence: ${parlay.combinedConfidence}%\n\nLegs:\n${analysisText}`);
+              alert('Analysis copied to clipboard!');
+            }}
             data-testid="button-export-parlay"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export Parlay
+            Export Analysis
           </Button>
           <Button 
             variant="outline"
@@ -250,9 +257,9 @@ export function ParlayBuilderModal({
         <Card className="bg-slate-700 border-slate-600 mt-6">
           <CardContent className="pt-4">
             <div className="text-sm text-slate-400">
-              <strong className="text-slate-300">Risk Disclaimer:</strong> All parlays are generated based on 
-              statistical analysis and should not be considered guaranteed wins. Please bet responsibly 
-              and within your means. Past performance does not guarantee future results.
+              <strong className="text-slate-300">Analysis Disclaimer:</strong> All parlays are generated based on 
+              statistical analysis for educational and research purposes only. This is not betting advice. 
+              Past performance does not guarantee future results. Always do your own research.
             </div>
           </CardContent>
         </Card>
