@@ -169,28 +169,48 @@ export class SportsDataService {
 
   async getNFLGames(week?: number, season?: number): Promise<Game[]> {
     try {
-      const currentSeason = season || new Date().getFullYear();
-      const currentWeek = week || 1;
-      const games = await this.makeRequest<SportsDataGameResponse[]>(`/nfl/scores/json/ScoresByWeek/${currentSeason}REG/${currentWeek}`);
+      // The Sports DB - Get NFL season games
+      const url = `${this.sportsDbUrl}/eventsseason.php?id=4391&s=2024`;
+      const response = await this.makeRequest<any>(url, 'NFL Games');
       
-      return games.map(game => ({
-        id: `nfl-${game.GameID}`,
-        sportId: "nfl",
-        homeTeamId: `nfl-${game.HomeTeamID}`,
-        awayTeamId: `nfl-${game.AwayTeamID}`,
-        gameDate: new Date(game.DateTime),
-        venue: game.Stadium || null,
-        weather: game.Temperature ? {
-          temperature: game.Temperature,
-          humidity: game.Humidity || null,
-          windSpeed: game.WindSpeed || null,
-          windDirection: game.WindDirection || null,
-          conditions: null
-        } : null,
-        gameTotal: null,
-        isCompleted: game.Status === "Final" || game.Status === "Closed",
-        lastUpdated: new Date()
+      if (!response.events) {
+        console.log("No NFL events found in response");
+        return [];
+      }
+
+      // Filter to recent games
+      const today = new Date();
+      const recentGames = response.events.filter((event: any) => {
+        if (!event.dateEvent) return false;
+        const gameDate = new Date(event.dateEvent);
+        const daysDiff = Math.abs((today.getTime() - gameDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff <= 14; // Games within last 2 weeks
+      }).slice(0, 10);
+      
+      const gamesWithWeather = await Promise.all(recentGames.map(async (event: any) => {
+        const weather = event.strVenue ? await this.getWeatherForVenue(event.strVenue) : null;
+        
+        return {
+          id: `nfl-${event.idEvent}`,
+          sportId: "nfl",
+          homeTeamId: `nfl-${event.strHomeTeam?.replace(/\s+/g, '')}`,
+          awayTeamId: `nfl-${event.strAwayTeam?.replace(/\s+/g, '')}`,
+          gameDate: new Date(event.strTimestamp || event.dateEvent),
+          venue: event.strVenue || null,
+          weather: weather ? {
+            temperature: weather.daily?.temperature_2m_max?.[0] || null,
+            humidity: null,
+            windSpeed: weather.daily?.wind_speed_10m_max?.[0] || null,
+            windDirection: null,
+            conditions: weather.daily?.weather_code?.[0] ? this.getWeatherCondition(weather.daily.weather_code[0]) : null
+          } : null,
+          gameTotal: null,
+          isCompleted: event.strStatus === "Match Finished",
+          lastUpdated: new Date()
+        };
       }));
+      
+      return gamesWithWeather;
     } catch (error) {
       console.error("Error fetching NFL games:", error);
       return [];
@@ -199,19 +219,34 @@ export class SportsDataService {
 
   async getNBAGames(date?: string): Promise<Game[]> {
     try {
-      const dateStr = date || new Date().toISOString().split('T')[0];
-      const games = await this.makeRequest<SportsDataGameResponse[]>(`/nba/scores/json/GamesByDate/${dateStr}`);
+      // The Sports DB - Get NBA season games
+      const url = `${this.sportsDbUrl}/eventsseason.php?id=4387&s=2024`;
+      const response = await this.makeRequest<any>(url, 'NBA Games');
       
-      return games.map(game => ({
-        id: `nba-${game.GameID}`,
+      if (!response.events) {
+        console.log("No NBA events found in response");
+        return [];
+      }
+
+      // Filter to recent games
+      const today = new Date();
+      const recentGames = response.events.filter((event: any) => {
+        if (!event.dateEvent) return false;
+        const gameDate = new Date(event.dateEvent);
+        const daysDiff = Math.abs((today.getTime() - gameDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff <= 14; // Games within last 2 weeks
+      }).slice(0, 10);
+      
+      return recentGames.map((event: any) => ({
+        id: `nba-${event.idEvent}`,
         sportId: "nba",
-        homeTeamId: `nba-${game.HomeTeamID}`,
-        awayTeamId: `nba-${game.AwayTeamID}`,
-        gameDate: new Date(game.DateTime),
-        venue: game.Stadium || null,
+        homeTeamId: `nba-${event.strHomeTeam?.replace(/\s+/g, '')}`,
+        awayTeamId: `nba-${event.strAwayTeam?.replace(/\s+/g, '')}`,
+        gameDate: new Date(event.strTimestamp || event.dateEvent),
+        venue: event.strVenue || null,
         weather: null, // NBA games are typically indoors
         gameTotal: null,
-        isCompleted: game.Status === "Final" || game.Status === "Closed",
+        isCompleted: event.strStatus === "Match Finished",
         lastUpdated: new Date()
       }));
     } catch (error) {
@@ -251,22 +286,27 @@ export class SportsDataService {
 
   async getNFLTeams(): Promise<Team[]> {
     try {
-      const teams = await this.makeRequest<SportsDataTeamResponse[]>("/nfl/scores/json/Teams");
+      // The Sports DB - Get NFL teams
+      const url = `${this.sportsDbUrl}/search_all_teams.php?l=NFL`;
+      const response = await this.makeRequest<any>(url, 'NFL Teams');
       
-      return teams
-        .filter(team => team.Active)
-        .map(team => ({
-          id: `nfl-${team.TeamID}`,
-          sportId: "nfl",
-          name: team.Name,
-          city: team.City,
-          abbreviation: team.Key,
-          logoUrl: team.WikipediaLogoUrl || null,
-          primaryColor: team.PrimaryColor || "#000000",
-          secondaryColor: team.SecondaryColor || "#FFFFFF",
-          conference: team.Conference || null,
-          division: team.Division || null
-        }));
+      if (!response.teams) {
+        console.log("No NFL teams found in response");
+        return [];
+      }
+      
+      return response.teams.map((team: any) => ({
+        id: `nfl-${team.strTeam?.replace(/\s+/g, '')}`,
+        sportId: "nfl",
+        name: team.strTeam || 'Unknown',
+        city: team.strLocation || team.strTeam?.split(' ')[0] || 'Unknown',
+        abbreviation: team.strTeamShort || team.strTeam?.substring(0, 3).toUpperCase() || 'UNK',
+        logoUrl: team.strBadge || team.strLogo || null,
+        primaryColor: team.strColour1 ? `#${team.strColour1}` : "#000000",
+        secondaryColor: team.strColour2 ? `#${team.strColour2}` : "#FFFFFF",
+        conference: team.strLeague || "NFL",
+        division: team.strDivision || null
+      }));
     } catch (error) {
       console.error("Error fetching NFL teams:", error);
       return [];
@@ -275,21 +315,26 @@ export class SportsDataService {
 
   async getNBATeams(): Promise<Team[]> {
     try {
-      const teams = await this.makeRequest<SportsDataTeamResponse[]>("/nba/scores/json/teams");
+      // The Sports DB - Get NBA teams
+      const url = `${this.sportsDbUrl}/search_all_teams.php?l=NBA`;
+      const response = await this.makeRequest<any>(url, 'NBA Teams');
       
-      return teams
-        .filter(team => team.Active)
-        .map(team => ({
-          id: `nba-${team.TeamID}`,
+      if (!response.teams) {
+        console.log("No NBA teams found in response");
+        return [];
+      }
+      
+      return response.teams.map((team: any) => ({
+          id: `nba-${team.strTeam?.replace(/\s+/g, '')}`,
           sportId: "nba",
-          name: team.Name,
-          city: team.City,
-          abbreviation: team.Key,
-          logoUrl: team.WikipediaLogoUrl || null,
-          primaryColor: team.PrimaryColor || "#000000",
-          secondaryColor: team.SecondaryColor || "#FFFFFF",
-          conference: team.Conference || null,
-          division: team.Division || null
+          name: team.strTeam || 'Unknown',
+          city: team.strLocation || team.strTeam?.split(' ')[0] || 'Unknown',
+          abbreviation: team.strTeamShort || team.strTeam?.substring(0, 3).toUpperCase() || 'UNK',
+          logoUrl: team.strBadge || team.strLogo || null,
+          primaryColor: team.strColour1 ? `#${team.strColour1}` : "#000000",
+          secondaryColor: team.strColour2 ? `#${team.strColour2}` : "#FFFFFF",
+          conference: team.strLeague || "NBA",
+          division: team.strDivision || null
         }));
     } catch (error) {
       console.error("Error fetching NBA teams:", error);
