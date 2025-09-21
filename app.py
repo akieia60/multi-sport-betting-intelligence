@@ -4,12 +4,20 @@ import os
 app = Flask(__name__)
 
 @app.route("/")
-def root_index():
-    return send_from_directory("dist/public", "index.html")
+def index():
+    try:
+        static_dir = os.path.join(os.getcwd(), "dist", "public")
+        return send_from_directory(static_dir, "index.html")
+    except Exception as e:
+        return jsonify({"error": "Frontend not found", "details": str(e), "cwd": os.getcwd()}), 404
 
 @app.route("/assets/<path:filename>")
-def serve_assets(filename):
-    return send_from_directory("dist/public/assets", filename)
+def assets(filename):
+    try:
+        assets_dir = os.path.join(os.getcwd(), "dist", "public", "assets")
+        return send_from_directory(assets_dir, filename)
+    except Exception as e:
+        return jsonify({"error": "Asset not found", "file": filename}), 404
 
 @app.route("/api/health")
 def health():
@@ -21,8 +29,11 @@ def status():
 
 @app.route("/<path:path>")
 def catch_all(path):
-    # For SPA routing, serve index.html for any unmatched routes
-    return send_from_directory("dist/public", "index.html")
+    try:
+        static_dir = os.path.join(os.getcwd(), "dist", "public")
+        return send_from_directory(static_dir, "index.html")
+    except Exception:
+        return jsonify({"error": "Route not found", "path": path}), 404
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
