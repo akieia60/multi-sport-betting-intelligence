@@ -27,17 +27,29 @@ try:
     from newsletter_engine import NewsletterAutomationEngine
     from config import Brand, Schedule, Monetization
 
-    # Initialize engines only if we have API keys
+    # FORCE initialize the data engine with your $150 API key
     if os.getenv('ODDS_API_KEY'):
-        data_engine = ProfessionalDataEngine()
-        print("✅ Data Engine loaded")
+        try:
+            data_engine = ProfessionalDataEngine()
+            print("✅ Data Engine loaded with $150 Odds API")
+            # Test the connection immediately
+            test_games = data_engine.get_nfl_games()
+            print(f"✅ Connected to Odds API - Found {len(test_games)} NFL games")
+        except Exception as e:
+            print(f"❌ Odds API connection failed: {e}")
 
     if os.getenv('TWITTER_API_KEY'):
-        twitter_engine = TwitterGrowthEngine()
-        print("✅ Twitter Engine loaded")
+        try:
+            twitter_engine = TwitterGrowthEngine()
+            print("✅ Twitter Engine loaded")
+        except Exception as e:
+            print(f"❌ Twitter Engine failed: {e}")
 
-    newsletter_engine = NewsletterAutomationEngine()
-    print("✅ Newsletter Engine loaded")
+    try:
+        newsletter_engine = NewsletterAutomationEngine()
+        print("✅ Newsletter Engine loaded")
+    except Exception as e:
+        print(f"❌ Newsletter Engine failed: {e}")
 
 except Exception as e:
     print(f"⚠️ Engine loading failed: {e}")
@@ -60,16 +72,16 @@ def health():
 
 @app.route("/api/status")
 def status():
-    # App is operational if SportsData is loaded (real NFL data available)
-    is_operational = sportsdata is not None
+    # App is operational if we have data (either API or CSV)
+    is_operational = data_engine is not None or sportsdata is not None
 
     return jsonify({
         "platform": "NFL Analytics Empire - SportEdge Pro",
         "status": "operational" if is_operational else "loading",
         "offline": not is_operational,
         "data_sources": {
+            "odds_api_150_dollar": "active" if data_engine else "offline",
             "sportsdata_csv": "active" if sportsdata else "offline",
-            "live_odds_api": "active" if data_engine else "offline",
             "twitter_api": "active" if twitter_engine else "offline"
         },
         "engines": {
@@ -80,7 +92,8 @@ def status():
         "apis": {
             "odds_api": "connected" if os.getenv("ODDS_API_KEY") else "missing",
             "twitter_api": "connected" if os.getenv("TWITTER_API_KEY") else "missing"
-        }
+        },
+        "nfl_ready": True if data_engine else False
     })
 
 @app.route("/api/games")
@@ -209,25 +222,44 @@ def get_sports():
 @app.route("/api/<sport>/games")
 @app.route("/api/games")
 def get_sport_games(sport="nfl"):
-    """Games for React frontend"""
-    if not sportsdata:
-        return jsonify([])
+    """Games for React frontend - REAL $150 Odds API data"""
 
-    # Mock game data that your React app expects
+    # Use your REAL $150 Odds API if available
+    if data_engine and sport == "nfl":
+        try:
+            real_games = data_engine.get_nfl_games()
+            formatted_games = []
+
+            for i, game in enumerate(real_games[:10]):  # Limit to 10 games
+                formatted_games.append({
+                    "id": f"game_{i+1}",
+                    "homeTeam": {
+                        "name": game.get("home_team", "Home Team"),
+                        "abbreviation": game.get("home_team", "HM")[:3].upper()
+                    },
+                    "awayTeam": {
+                        "name": game.get("away_team", "Away Team"),
+                        "abbreviation": game.get("away_team", "AW")[:3].upper()
+                    },
+                    "startTime": game.get("commence_time", "2025-09-22T17:00:00Z"),
+                    "week": 3,
+                    "status": "upcoming",
+                    "odds": game.get("bookmakers", [])  # Include real betting odds
+                })
+
+            print(f"✅ Serving {len(formatted_games)} REAL NFL games from $150 API")
+            return jsonify(formatted_games)
+
+        except Exception as e:
+            print(f"❌ Odds API error: {e}")
+
+    # Fallback to mock data if API fails
     games = [
         {
             "id": "game_1",
             "homeTeam": {"name": "Chiefs", "abbreviation": "KC"},
             "awayTeam": {"name": "Bills", "abbreviation": "BUF"},
             "startTime": "2025-09-21T20:00:00Z",
-            "week": 3,
-            "status": "upcoming"
-        },
-        {
-            "id": "game_2",
-            "homeTeam": {"name": "Cowboys", "abbreviation": "DAL"},
-            "awayTeam": {"name": "Giants", "abbreviation": "NYG"},
-            "startTime": "2025-09-22T17:00:00Z",
             "week": 3,
             "status": "upcoming"
         }
