@@ -7,30 +7,41 @@ from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
 
-# Import your real engines and data
+# Load your SportsData.io CSV files first (this always works)
+sportsdata = None
+try:
+    from sportsdata_loader import SportsDataLoader
+    sportsdata = SportsDataLoader()
+    print("✅ SportsData.io files loaded")
+except Exception as e:
+    print(f"⚠️ SportsData loading failed: {e}")
+
+# Try to load engines (optional - app works without them)
+data_engine = None
+twitter_engine = None
+newsletter_engine = None
+
 try:
     from data_engine import ProfessionalDataEngine
     from twitter_engine import TwitterGrowthEngine
     from newsletter_engine import NewsletterAutomationEngine
     from config import Brand, Schedule, Monetization
-    from sportsdata_loader import SportsDataLoader
 
-    # Initialize engines
-    data_engine = ProfessionalDataEngine() if os.getenv('ODDS_API_KEY') else None
-    twitter_engine = TwitterGrowthEngine() if os.getenv('TWITTER_API_KEY') else None
+    # Initialize engines only if we have API keys
+    if os.getenv('ODDS_API_KEY'):
+        data_engine = ProfessionalDataEngine()
+        print("✅ Data Engine loaded")
+
+    if os.getenv('TWITTER_API_KEY'):
+        twitter_engine = TwitterGrowthEngine()
+        print("✅ Twitter Engine loaded")
+
     newsletter_engine = NewsletterAutomationEngine()
+    print("✅ Newsletter Engine loaded")
 
-    # Load your SportsData.io CSV files
-    sportsdata = SportsDataLoader()
-
-    print("✅ NFL Analytics Empire engines loaded")
-    print("✅ SportsData.io files loaded")
 except Exception as e:
     print(f"⚠️ Engine loading failed: {e}")
-    data_engine = None
-    twitter_engine = None
-    newsletter_engine = None
-    sportsdata = None
+    print("✅ App will work with SportsData.io files only")
 
 app = Flask(__name__)
 CORS(app)
@@ -49,10 +60,18 @@ def health():
 
 @app.route("/api/status")
 def status():
+    # App is operational if SportsData is loaded (real NFL data available)
+    is_operational = sportsdata is not None
+
     return jsonify({
         "platform": "NFL Analytics Empire - SportEdge Pro",
-        "status": "operational" if data_engine else "engines_loading",
-        "offline": False if data_engine and twitter_engine else True,
+        "status": "operational" if is_operational else "loading",
+        "offline": not is_operational,
+        "data_sources": {
+            "sportsdata_csv": "active" if sportsdata else "offline",
+            "live_odds_api": "active" if data_engine else "offline",
+            "twitter_api": "active" if twitter_engine else "offline"
+        },
         "engines": {
             "data": "active" if data_engine else "offline",
             "twitter": "active" if twitter_engine else "offline",
