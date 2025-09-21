@@ -3,6 +3,7 @@
 from flask import Flask, send_from_directory, jsonify, request
 import os
 import sys
+import mimetypes
 
 # Add the parent directory to the path so we can import our modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -20,10 +21,16 @@ except ImportError as e:
     NewsletterEngine = None
     Config = None
 
+# Set up proper MIME types
+mimetypes.add_type('application/javascript', '.js')
+mimetypes.add_type('text/css', '.css')
+
 # Create Flask app with static file serving
-app = Flask(__name__, 
-            static_folder='../client/dist',
-            static_url_path='')
+app = Flask(__name__)
+
+# Configure static file serving
+static_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'client', 'dist')
+print(f"Static folder path: {static_folder}")
 
 # Configure CORS for API routes
 @app.after_request
@@ -33,27 +40,16 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
 
+# Serve static assets (JS, CSS, images)
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    assets_dir = os.path.join(static_folder, 'assets')
+    return send_from_directory(assets_dir, filename)
+
 # Serve React App
 @app.route('/')
 def serve_react_app():
-    return send_from_directory(app.static_folder, 'index.html')
-
-# Catch all route for React Router
-@app.route('/<path:path>')
-def serve_react_routes(path):
-    # If it's an API route, let it pass through
-    if path.startswith('api/'):
-        return jsonify({'error': 'API endpoint not found'}), 404
-    
-    # If it's a static file, serve it
-    if '.' in path:
-        try:
-            return send_from_directory(app.static_folder, path)
-        except:
-            return send_from_directory(app.static_folder, 'index.html')
-    
-    # Otherwise, serve the React app
-    return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory(static_folder, 'index.html')
 
 # Health check endpoint
 @app.route('/api/health')
@@ -210,6 +206,23 @@ def get_odds():
             'error': str(e)
         }), 500
 
+# Catch all route for React Router (must be last)
+@app.route('/<path:path>')
+def serve_react_routes(path):
+    # If it's an API route, return 404
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    
+    # If it's a static file that exists, serve it
+    if '.' in path:
+        try:
+            return send_from_directory(static_folder, path)
+        except:
+            pass
+    
+    # Otherwise, serve the React app (for client-side routing)
+    return send_from_directory(static_folder, 'index.html')
+
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):
@@ -218,7 +231,7 @@ def not_found(error):
         return jsonify({'error': 'API endpoint not found'}), 404
     
     # For all other routes, serve the React app
-    return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory(static_folder, 'index.html')
 
 @app.errorhandler(500)
 def internal_error(error):
@@ -229,7 +242,7 @@ if __name__ == '__main__':
     debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
     print(f"🚀 SportEdge Pro starting on port {port}")
-    print(f"📁 Serving React app from: {app.static_folder}")
+    print(f"📁 Serving React app from: {static_folder}")
     print(f"🔧 Debug mode: {debug}")
     
     app.run(host='0.0.0.0', port=port, debug=debug)
