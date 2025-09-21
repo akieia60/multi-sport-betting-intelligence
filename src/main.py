@@ -11,13 +11,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import our engines
 try:
     from twitter_engine import TwitterGrowthEngine
-    from data_engine import ProfessionalProfessionalDataEngine
+    from data_engine import ProfessionalDataEngine
     from newsletter_engine import NewsletterAutomationEngine
     from config import Brand
 except ImportError as e:
     print(f"Warning: Could not import engines: {e}")
     TwitterGrowthEngine = None
-    ProfessionalProfessionalDataEngine = None
+    ProfessionalDataEngine = None
     NewsletterAutomationEngine = None
     Brand = None
 
