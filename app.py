@@ -75,25 +75,36 @@ def status():
     # App is operational if we have data (either API or CSV)
     is_operational = data_engine is not None or sportsdata is not None
 
+    # Test if Odds API is actually working
+    odds_api_working = False
+    test_games = []
+    if data_engine and os.getenv("ODDS_API_KEY"):
+        try:
+            test_games = data_engine.get_nfl_games()
+            odds_api_working = len(test_games) > 0
+        except:
+            pass
+
     return jsonify({
         "platform": "NFL Analytics Empire - SportEdge Pro",
         "status": "operational" if is_operational else "loading",
         "offline": not is_operational,
         "data_sources": {
-            "odds_api_150_dollar": "active" if data_engine else "offline",
+            "odds_api_live": "active" if odds_api_working else "offline",
             "sportsdata_csv": "active" if sportsdata else "offline",
             "twitter_api": "active" if twitter_engine else "offline"
         },
         "engines": {
-            "data": "active" if data_engine else "offline",
+            "data": "active" if data_engine and odds_api_working else "offline",
             "twitter": "active" if twitter_engine else "offline",
             "newsletter": "active" if newsletter_engine else "offline"
         },
         "apis": {
-            "odds_api": "connected" if os.getenv("ODDS_API_KEY") else "missing",
+            "odds_api": "connected" if odds_api_working else "missing",
             "twitter_api": "connected" if os.getenv("TWITTER_API_KEY") else "missing"
         },
-        "nfl_ready": True if data_engine else False
+        "nfl_ready": True if odds_api_working else False,
+        "live_games": len(test_games) if odds_api_working else 0
     })
 
 @app.route("/api/games")
@@ -222,40 +233,54 @@ def get_sports():
 @app.route("/api/<sport>/games")
 @app.route("/api/games")
 def get_sport_games(sport="nfl"):
-    """Games for React frontend - REAL $150 Odds API data"""
+    """Games for React frontend - REAL Odds API data with live betting lines"""
 
-    # Use your REAL SportsDataIO API data
+    # Use your REAL Odds API data (working!)
     if data_engine and sport == "nfl":
         try:
-            # Get games from SportsDataIO (your paid API)
-            sportsdata_games = data_engine.get_sportsdata_games()
+            # Get games from Odds API (your working API)
+            odds_games = data_engine.get_nfl_games()
             formatted_games = []
 
-            for i, game in enumerate(sportsdata_games[:16]):  # Current week games
+            for i, game in enumerate(odds_games[:16]):  # Current week games
+                # Extract team names
+                home_team = game.get("home_team", "Home Team")
+                away_team = game.get("away_team", "Away Team")
+
+                # Create abbreviations from team names
+                home_abbr = "".join([word[0] for word in home_team.split()[:2]]).upper()
+                away_abbr = "".join([word[0] for word in away_team.split()[:2]]).upper()
+
                 formatted_games.append({
-                    "id": game.get("GameKey", f"game_{i+1}"),
+                    "id": game.get("id", f"game_{i+1}"),
                     "homeTeam": {
-                        "name": game.get("HomeTeam", "Home Team"),
-                        "abbreviation": game.get("HomeTeam", "HM")
+                        "name": home_team,
+                        "abbreviation": home_abbr
                     },
                     "awayTeam": {
-                        "name": game.get("AwayTeam", "Away Team"),
-                        "abbreviation": game.get("AwayTeam", "AW")
+                        "name": away_team,
+                        "abbreviation": away_abbr
                     },
-                    "startTime": game.get("DateTime", "2025-09-22T17:00:00Z"),
-                    "week": game.get("Week", 3),
-                    "status": game.get("Status", "upcoming"),
-                    "homeScore": game.get("HomeScore", 0),
-                    "awayScore": game.get("AwayScore", 0),
-                    "quarter": game.get("Quarter", ""),
-                    "timeRemaining": game.get("TimeRemaining", "")
+                    "startTime": game.get("commence_time", "2025-09-22T17:00:00Z"),
+                    "week": 3,  # Current week
+                    "status": "upcoming",
+                    "homeScore": 0,
+                    "awayScore": 0,
+                    "quarter": "",
+                    "timeRemaining": "",
+                    # Add betting lines from real sportsbooks
+                    "betting_lines": {
+                        "spread": _extract_spread(game),
+                        "total": _extract_total(game),
+                        "moneyline": _extract_moneyline(game)
+                    }
                 })
 
-            print(f"✅ Serving {len(formatted_games)} REAL NFL games from SportsDataIO")
+            print(f"✅ Serving {len(formatted_games)} REAL NFL games with live betting lines from Odds API")
             return jsonify(formatted_games)
 
         except Exception as e:
-            print(f"❌ SportsDataIO API error: {e}")
+            print(f"❌ Odds API error: {e}")
 
     # Fallback to mock data if API fails
     games = [
@@ -269,6 +294,57 @@ def get_sport_games(sport="nfl"):
         }
     ]
     return jsonify(games)
+
+def _extract_spread(game):
+    """Extract spread betting line from game data"""
+    try:
+        for bookmaker in game.get('bookmakers', []):
+            for market in bookmaker.get('markets', []):
+                if market.get('key') == 'spreads':
+                    outcomes = market.get('outcomes', [])
+                    if len(outcomes) >= 2:
+                        return {
+                            'home_spread': outcomes[0].get('point', 0),
+                            'away_spread': outcomes[1].get('point', 0),
+                            'home_odds': outcomes[0].get('price', -110),
+                            'away_odds': outcomes[1].get('price', -110)
+                        }
+    except:
+        pass
+    return None
+
+def _extract_total(game):
+    """Extract total betting line from game data"""
+    try:
+        for bookmaker in game.get('bookmakers', []):
+            for market in bookmaker.get('markets', []):
+                if market.get('key') == 'totals':
+                    outcomes = market.get('outcomes', [])
+                    if len(outcomes) >= 2:
+                        return {
+                            'total': outcomes[0].get('point', 47.5),
+                            'over_odds': outcomes[0].get('price', -110),
+                            'under_odds': outcomes[1].get('price', -110)
+                        }
+    except:
+        pass
+    return None
+
+def _extract_moneyline(game):
+    """Extract moneyline betting odds from game data"""
+    try:
+        for bookmaker in game.get('bookmakers', []):
+            for market in bookmaker.get('markets', []):
+                if market.get('key') == 'h2h':
+                    outcomes = market.get('outcomes', [])
+                    if len(outcomes) >= 2:
+                        return {
+                            'home_odds': outcomes[0].get('price', -110),
+                            'away_odds': outcomes[1].get('price', -110)
+                        }
+    except:
+        pass
+    return None
 
 @app.route("/api/<sport>/teams")
 @app.route("/api/teams")
