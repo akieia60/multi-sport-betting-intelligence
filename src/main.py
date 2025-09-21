@@ -163,5 +163,7 @@ if __name__ == '__main__':
     print("🐦 Twitter Automation: Ready")
     print("💰 Revenue Features: Enabled")
     
-    # Run Flask app
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 3000)), debug=False)
+    # Run Flask app on Railway's expected port
+    port = int(os.environ.get('PORT', 8080))
+    print(f"🌐 Starting server on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
