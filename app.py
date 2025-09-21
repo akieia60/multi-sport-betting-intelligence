@@ -5,16 +5,11 @@ app = Flask(__name__)
 
 @app.route("/")
 def root_index():
-    static_dir = "dist/static" if os.path.exists("dist/static") else "dist/public"
-    return send_from_directory(static_dir, "index.html")
+    return send_from_directory("dist/public", "index.html")
 
-@app.route("/<path:path>")
-def serve_static(path):
-    static_dir = "dist/static" if os.path.exists("dist/static") else "dist/public"
-    try:
-        return send_from_directory(static_dir, path)
-    except Exception:
-        return send_from_directory(static_dir, "index.html")
+@app.route("/assets/<path:filename>")
+def serve_assets(filename):
+    return send_from_directory("dist/public/assets", filename)
 
 @app.route("/api/health")
 def health():
@@ -23,6 +18,11 @@ def health():
 @app.route("/api/status")
 def status():
     return jsonify({"platform": "railway", "app": "sportedge-pro"})
+
+@app.route("/<path:path>")
+def catch_all(path):
+    # For SPA routing, serve index.html for any unmatched routes
+    return send_from_directory("dist/public", "index.html")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
