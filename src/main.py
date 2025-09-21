@@ -67,16 +67,35 @@ threading.Thread(target=init_node_server, daemon=True).start()
 @app.route('/')
 def serve_index():
     """Serve the main React app"""
-    return send_from_directory('/home/ubuntu/multi-sport-betting-intelligence/client/dist', 'index.html')
+    try:
+        return send_from_directory('/home/ubuntu/multi-sport-betting-intelligence/client/dist', 'index.html')
+    except Exception as e:
+        return f"Error serving index: {e}", 500
+
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    """Serve static assets"""
+    try:
+        return send_from_directory('/home/ubuntu/multi-sport-betting-intelligence/client/dist/assets', filename)
+    except Exception as e:
+        return f"Asset not found: {filename}", 404
 
 @app.route('/<path:path>')
 def serve_static(path):
-    """Serve static files from the React build"""
+    """Serve static files from the React build or fallback to index.html for React Router"""
+    # Skip API routes
+    if path.startswith('api/'):
+        return "API route - should be handled by proxy", 404
+    
     try:
+        # Try to serve the file directly
         return send_from_directory('/home/ubuntu/multi-sport-betting-intelligence/client/dist', path)
     except:
-        # If file not found, serve index.html for React Router
-        return send_from_directory('/home/ubuntu/multi-sport-betting-intelligence/client/dist', 'index.html')
+        # If file not found, serve index.html for React Router (SPA routing)
+        try:
+            return send_from_directory('/home/ubuntu/multi-sport-betting-intelligence/client/dist', 'index.html')
+        except Exception as e:
+            return f"Error serving app: {e}", 500
 
 @app.route('/api/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy_api(path):
