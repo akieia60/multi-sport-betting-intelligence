@@ -1,182 +1,235 @@
 #!/usr/bin/env python3
 
-from flask import Flask
+from flask import Flask, send_from_directory, jsonify, request
 import os
+import sys
 
-app = Flask(__name__)
+# Add the parent directory to the path so we can import our modules
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import our engines
+try:
+    from twitter_engine import TwitterEngine
+    from data_engine import DataEngine
+    from newsletter_engine import NewsletterEngine
+    from config import Config
+except ImportError as e:
+    print(f"Warning: Could not import engines: {e}")
+    TwitterEngine = None
+    DataEngine = None
+    NewsletterEngine = None
+    Config = None
+
+# Create Flask app with static file serving
+app = Flask(__name__, 
+            static_folder='../client/dist',
+            static_url_path='')
+
+# Configure CORS for API routes
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+# Serve React App
 @app.route('/')
-def home():
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>SportEdge Pro - Multi-Sport Betting Intelligence</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { 
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-                color: white;
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            .container { 
-                max-width: 900px; 
-                margin: 0 auto; 
-                text-align: center; 
-                padding: 40px 20px;
-            }
-            .logo { 
-                font-size: 3.5em; 
-                font-weight: bold; 
-                background: linear-gradient(45deg, #00ff88, #00ccff);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                margin-bottom: 20px;
-                text-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
-            }
-            .subtitle {
-                font-size: 1.3em;
-                color: #cccccc;
-                margin-bottom: 40px;
-            }
-            .status { 
-                background: rgba(0, 255, 136, 0.1);
-                border: 2px solid #00ff88;
-                padding: 30px; 
-                border-radius: 15px; 
-                margin: 30px 0;
-                box-shadow: 0 10px 30px rgba(0, 255, 136, 0.2);
-            }
-            .features {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 20px;
-                margin: 40px 0;
-            }
-            .feature { 
-                background: rgba(255, 255, 255, 0.05);
-                backdrop-filter: blur(10px);
-                padding: 25px; 
-                border-radius: 10px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                transition: transform 0.3s ease;
-            }
-            .feature:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 15px 35px rgba(0, 255, 136, 0.2);
-            }
-            .feature h4 {
-                color: #00ff88;
-                font-size: 1.2em;
-                margin-bottom: 10px;
-            }
-            .stats {
-                display: flex;
-                justify-content: space-around;
-                margin: 40px 0;
-                flex-wrap: wrap;
-            }
-            .stat {
-                text-align: center;
-                margin: 10px;
-            }
-            .stat-number {
-                font-size: 2em;
-                font-weight: bold;
-                color: #00ff88;
-            }
-            .stat-label {
-                color: #cccccc;
-                font-size: 0.9em;
-            }
-            .pulse {
-                animation: pulse 2s infinite;
-            }
-            @keyframes pulse {
-                0% { opacity: 1; }
-                50% { opacity: 0.7; }
-                100% { opacity: 1; }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="logo pulse">SportEdge Pro</div>
-            <div class="subtitle">Multi-Sport Betting Intelligence Platform</div>
-            
-            <div class="status">
-                <h2>🎉 Platform Successfully Deployed!</h2>
-                <p>Your betting intelligence system is now live and operational</p>
-            </div>
-            
-            <div class="features">
-                <div class="feature">
-                    <h4>📊 SportsDataIO Integration</h4>
-                    <p>Real-time NFL data with live betting lines, player stats, and game analytics</p>
-                </div>
-                
-                <div class="feature">
-                    <h4>🐦 Twitter Automation</h4>
-                    <p>Automated social media posting with AI-generated betting insights and picks</p>
-                </div>
-                
-                <div class="feature">
-                    <h4>🎯 Advanced Parlay Builder</h4>
-                    <p>Smart parlay construction with edge calculations and risk analysis</p>
-                </div>
-                
-                <div class="feature">
-                    <h4>💰 Revenue Ready</h4>
-                    <p>Built-in subscription tiers and monetization features for immediate income</p>
-                </div>
-            </div>
-            
-            <div class="stats">
-                <div class="stat">
-                    <div class="stat-number">16</div>
-                    <div class="stat-label">Live NFL Games</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-number">$149</div>
-                    <div class="stat-label">Monthly API Cost</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-number">24/7</div>
-                    <div class="stat-label">Automated Updates</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-number">∞</div>
-                    <div class="stat-label">Revenue Potential</div>
-                </div>
-            </div>
-            
-            <div style="margin-top: 40px; padding: 20px; background: rgba(0, 204, 255, 0.1); border-radius: 10px; border: 1px solid #00ccff;">
-                <h3 style="color: #00ccff; margin-bottom: 15px;">🚀 System Status</h3>
-                <p><strong>Platform:</strong> ✅ Online and Operational</p>
-                <p><strong>SportsDataIO API:</strong> ✅ Connected and Active</p>
-                <p><strong>Twitter Integration:</strong> ✅ Ready for Automation</p>
-                <p><strong>Deployment:</strong> ✅ Successfully Deployed on Railway</p>
-            </div>
-            
-            <div style="margin-top: 30px; color: #888; font-size: 0.9em;">
-                <p>Your multi-sport betting intelligence empire is ready to dominate! 🏆</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+def serve_react_app():
+    return send_from_directory(app.static_folder, 'index.html')
 
-@app.route('/health')
+# Catch all route for React Router
+@app.route('/<path:path>')
+def serve_react_routes(path):
+    # If it's an API route, let it pass through
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    
+    # If it's a static file, serve it
+    if '.' in path:
+        try:
+            return send_from_directory(app.static_folder, path)
+        except:
+            return send_from_directory(app.static_folder, 'index.html')
+    
+    # Otherwise, serve the React app
+    return send_from_directory(app.static_folder, 'index.html')
+
+# Health check endpoint
+@app.route('/api/health')
 def health():
-    return {'status': 'healthy', 'platform': 'SportEdge Pro'}
+    return jsonify({
+        'status': 'healthy', 
+        'platform': 'SportEdge Pro',
+        'version': '2.0',
+        'services': {
+            'twitter': TwitterEngine is not None,
+            'data': DataEngine is not None,
+            'newsletter': NewsletterEngine is not None
+        }
+    })
+
+# API Routes
+@app.route('/api/status')
+def api_status():
+    return jsonify({
+        'platform': 'SportEdge Pro - Multi-Sport Betting Intelligence',
+        'status': 'operational',
+        'features': [
+            'SportsDataIO Integration',
+            'Twitter Automation', 
+            'Advanced Parlay Builder',
+            'Revenue Ready'
+        ],
+        'deployment': 'Railway Production'
+    })
+
+@app.route('/api/twitter/status')
+def twitter_status():
+    if TwitterEngine is None:
+        return jsonify({'error': 'Twitter engine not available'}), 503
+    
+    try:
+        # Initialize Twitter engine and check status
+        twitter = TwitterEngine()
+        return jsonify({
+            'status': 'connected',
+            'ready': True,
+            'message': 'Twitter automation ready'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'ready': False,
+            'message': str(e)
+        }), 500
+
+@app.route('/api/data/status')
+def data_status():
+    if DataEngine is None:
+        return jsonify({'error': 'Data engine not available'}), 503
+    
+    try:
+        # Initialize data engine and check status
+        data = DataEngine()
+        return jsonify({
+            'status': 'connected',
+            'ready': True,
+            'message': 'SportsDataIO integration ready'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'ready': False,
+            'message': str(e)
+        }), 500
+
+@app.route('/api/newsletter/status')
+def newsletter_status():
+    if NewsletterEngine is None:
+        return jsonify({'error': 'Newsletter engine not available'}), 503
+    
+    try:
+        # Initialize newsletter engine and check status
+        newsletter = NewsletterEngine()
+        return jsonify({
+            'status': 'connected',
+            'ready': True,
+            'message': 'Newsletter system ready'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'ready': False,
+            'message': str(e)
+        }), 500
+
+# Twitter API endpoints
+@app.route('/api/twitter/post', methods=['POST'])
+def twitter_post():
+    if TwitterEngine is None:
+        return jsonify({'error': 'Twitter engine not available'}), 503
+    
+    try:
+        data = request.get_json()
+        message = data.get('message', '')
+        
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        twitter = TwitterEngine()
+        result = twitter.post_tweet(message)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Tweet posted successfully',
+            'result': result
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# Data API endpoints
+@app.route('/api/data/games')
+def get_games():
+    if DataEngine is None:
+        return jsonify({'error': 'Data engine not available'}), 503
+    
+    try:
+        data = DataEngine()
+        games = data.get_current_games()
+        
+        return jsonify({
+            'success': True,
+            'games': games
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/data/odds')
+def get_odds():
+    if DataEngine is None:
+        return jsonify({'error': 'Data engine not available'}), 503
+    
+    try:
+        data = DataEngine()
+        odds = data.get_betting_odds()
+        
+        return jsonify({
+            'success': True,
+            'odds': odds
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# Error handlers
+@app.errorhandler(404)
+def not_found(error):
+    # For API routes, return JSON error
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    
+    # For all other routes, serve the React app
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
+    debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    
     print(f"🚀 SportEdge Pro starting on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    print(f"📁 Serving React app from: {app.static_folder}")
+    print(f"🔧 Debug mode: {debug}")
+    
+    app.run(host='0.0.0.0', port=port, debug=debug)
