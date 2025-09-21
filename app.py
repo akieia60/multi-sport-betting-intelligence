@@ -5,14 +5,16 @@ app = Flask(__name__)
 
 @app.route("/")
 def root_index():
-    return send_from_directory("dist/public", "index.html")
+    static_dir = "dist/static" if os.path.exists("dist/static") else "dist/public"
+    return send_from_directory(static_dir, "index.html")
 
 @app.route("/<path:path>")
 def serve_static(path):
+    static_dir = "dist/static" if os.path.exists("dist/static") else "dist/public"
     try:
-        return send_from_directory("dist/public", path)
+        return send_from_directory(static_dir, path)
     except Exception:
-        return send_from_directory("dist/public", "index.html")
+        return send_from_directory(static_dir, "index.html")
 
 @app.route("/api/health")
 def health():
@@ -24,4 +26,4 @@ def status():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
