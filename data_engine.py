@@ -20,7 +20,11 @@ class ProfessionalDataEngine:
     def __init__(self):
         self.odds_api_key = os.getenv('ODDS_API_KEY', '')
         self.odds_base_url = 'https://api.the-odds-api.com/v4'
-        
+
+        # SportsDataIO API integration
+        self.sportsdata_api_key = os.getenv('SPORTSDATA_API_KEY', '')
+        self.sportsdata_base_url = 'https://api.sportsdata.io/v3/nfl'
+
         # Sportsbook configuration
         self.sportsbooks = ['draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet']
         
@@ -75,7 +79,150 @@ class ProfessionalDataEngine:
         except requests.exceptions.RequestException as e:
             print(f"❌ Error fetching games: {e}")
             return []
-    
+
+    def get_sportsdata_games(self) -> List[Dict]:
+        """Get NFL games from SportsDataIO API"""
+        if not self.sportsdata_api_key:
+            return []
+
+        url = f"{self.sportsdata_base_url}/scores/json/Scores/2025"
+        headers = {'Ocp-Apim-Subscription-Key': self.sportsdata_api_key}
+
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            games = response.json()
+            print(f"✅ SportsDataIO: Got {len(games)} NFL games")
+            return games
+        except Exception as e:
+            print(f"❌ SportsDataIO Games Error: {e}")
+            return []
+
+    def get_sportsdata_players(self) -> List[Dict]:
+        """Get ALL NFL players from SportsDataIO"""
+        if not self.sportsdata_api_key:
+            return []
+
+        url = f"{self.sportsdata_base_url}/scores/json/Players"
+        headers = {'Ocp-Apim-Subscription-Key': self.sportsdata_api_key}
+
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            players = response.json()
+            print(f"✅ SportsDataIO: Got {len(players)} NFL players")
+            return players
+        except Exception as e:
+            print(f"❌ SportsDataIO Players Error: {e}")
+            return []
+
+    def get_sportsdata_teams(self) -> List[Dict]:
+        """Get ALL NFL teams from SportsDataIO"""
+        if not self.sportsdata_api_key:
+            return []
+
+        url = f"{self.sportsdata_base_url}/scores/json/Teams"
+        headers = {'Ocp-Apim-Subscription-Key': self.sportsdata_api_key}
+
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            teams = response.json()
+            print(f"✅ SportsDataIO: Got {len(teams)} NFL teams")
+            return teams
+        except Exception as e:
+            print(f"❌ SportsDataIO Teams Error: {e}")
+            return []
+
+    def get_sportsdata_player_stats(self, season: str = "2025") -> List[Dict]:
+        """Get player season stats from SportsDataIO"""
+        if not self.sportsdata_api_key:
+            return []
+
+        url = f"{self.sportsdata_base_url}/stats/json/PlayerSeasonStats/{season}"
+        headers = {'Ocp-Apim-Subscription-Key': self.sportsdata_api_key}
+
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            stats = response.json()
+            print(f"✅ SportsDataIO: Got {len(stats)} player stats")
+            return stats
+        except Exception as e:
+            print(f"❌ SportsDataIO Player Stats Error: {e}")
+            return []
+
+    def get_sportsdata_standings(self) -> List[Dict]:
+        """Get NFL standings from SportsDataIO"""
+        if not self.sportsdata_api_key:
+            return []
+
+        url = f"{self.sportsdata_base_url}/scores/json/Standings/2025"
+        headers = {'Ocp-Apim-Subscription-Key': self.sportsdata_api_key}
+
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            standings = response.json()
+            print(f"✅ SportsDataIO: Got NFL standings")
+            return standings
+        except Exception as e:
+            print(f"❌ SportsDataIO Standings Error: {e}")
+            return []
+
+    def get_live_odds(self) -> List[Dict]:
+        """Get live NFL betting odds combining both APIs"""
+        odds_data = []
+
+        # Get from Odds API
+        if self.odds_api_key:
+            try:
+                url = f"{self.odds_base_url}/sports/americanfootball_nfl/odds"
+                params = {
+                    'apiKey': self.odds_api_key,
+                    'regions': 'us',
+                    'markets': 'h2h,spreads,totals',
+                    'oddsFormat': 'american'
+                }
+                response = requests.get(url, params=params, timeout=15)
+                response.raise_for_status()
+                odds_data = response.json()
+                print(f"✅ Odds API: Got {len(odds_data)} games with odds")
+            except Exception as e:
+                print(f"❌ Odds API Error: {e}")
+
+        return odds_data
+
+    def generate_insights(self) -> Dict:
+        """Generate NFL analytics insights using all your data"""
+        insights = {
+            "games_today": 0,
+            "top_players": [],
+            "betting_edges": [],
+            "team_analysis": {},
+            "data_sources": []
+        }
+
+        # Get games
+        games = self.get_sportsdata_games()
+        if games:
+            insights["games_today"] = len(games)
+            insights["data_sources"].append("SportsDataIO Games")
+
+        # Get players
+        players = self.get_sportsdata_players()
+        if players:
+            insights["top_players"] = players[:10]  # Top 10 players
+            insights["data_sources"].append("SportsDataIO Players")
+
+        # Get odds
+        odds = self.get_live_odds()
+        if odds:
+            insights["betting_edges"] = odds[:5]  # Top 5 betting opportunities
+            insights["data_sources"].append("Live Odds API")
+
+        return insights
+
     def get_player_props(self, market: str = 'player_anytime_td') -> List[Dict]:
         """Get player prop betting lines"""
         
