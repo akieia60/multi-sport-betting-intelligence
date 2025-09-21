@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { REFRESH_INTERVALS } from "@/lib/constants";
 
@@ -18,7 +18,7 @@ export function useRealTime({
   const [nextRefresh, setNextRefresh] = useState(new Date(Date.now() + refreshInterval));
   const [countdown, setCountdown] = useState(Math.floor(refreshInterval / 1000));
   
-  const queryClient = useQueryClient();
+  // const queryClient = useQueryClient(); // Temporarily disabled
   const intervalRef = useRef<NodeJS.Timeout>();
   const countdownRef = useRef<NodeJS.Timeout>();
 

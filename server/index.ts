@@ -1,4 +1,6 @@
+import dotenv from "dotenv";
 import express, { type Request, Response, NextFunction } from "express";
+dotenv.config();
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { autoUpdateService } from "./services/autoUpdateService";

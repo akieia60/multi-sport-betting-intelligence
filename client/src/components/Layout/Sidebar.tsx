@@ -10,7 +10,8 @@ import {
   Search,
   Filter,
   Crown,
-  Zap
+  Zap,
+  Share2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +35,7 @@ const navigation = [
   { name: "Game Zone", href: "/game-zone", icon: Zap },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Parlay Builder", href: "/parlay-builder", icon: Layers },
+  { name: "Social Media", href: "/social-media", icon: Share2 },
 ];
 
 export function Sidebar({ selectedSport, filters, onFiltersChange }: SidebarProps) {

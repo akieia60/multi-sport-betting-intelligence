@@ -15,6 +15,7 @@ import Analytics from "@/pages/Analytics";
 import ParlayBuilder from "@/pages/ParlayBuilder";
 import GameZone from "@/pages/GameZone";
 import Subscription from "@/pages/Subscription";
+import SocialMedia from "@/pages/SocialMedia";
 import NotFound from "@/pages/not-found";
 
 // Layout components
@@ -93,6 +94,12 @@ function Router() {
             
             <Route path="/game-zone">
               <GameZone 
+                selectedSport={selectedSport}
+              />
+            </Route>
+            
+            <Route path="/social-media">
+              <SocialMedia 
                 selectedSport={selectedSport}
               />
             </Route>

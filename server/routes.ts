@@ -684,6 +684,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 5000); // Wait 5 seconds after server start
 
+  // Twitter Integration Routes
+  const { twitterService } = await import("./services/twitterService");
+
+  app.get('/api/twitter/status', async (req, res) => {
+    try {
+      const status = await twitterService.getTwitterStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting Twitter status:", error);
+      res.status(500).json({ message: "Failed to get Twitter status" });
+    }
+  });
+
+  app.post('/api/twitter/post', async (req, res) => {
+    try {
+      const { text, imageUrl, type } = req.body;
+      
+      if (!text) {
+        return res.status(400).json({ message: "Tweet text is required" });
+      }
+
+      const result = await twitterService.postTweet({
+        text,
+        imageUrl,
+        type: type || 'custom'
+      });
+
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      console.error("Error posting tweet:", error);
+      res.status(500).json({ message: "Failed to post tweet" });
+    }
+  });
+
+  app.post('/api/twitter/generate/:sport/:type', async (req, res) => {
+    try {
+      const { sport, type } = req.params;
+      const { week, parlayData } = req.body;
+
+      let tweetText = '';
+
+      switch (type) {
+        case 'waiver_wire':
+          tweetText = await twitterService.generateWaiverWireTweet(sport, week);
+          break;
+        case 'betting_picks':
+          tweetText = await twitterService.generateBettingPicksTweet(sport);
+          break;
+        case 'parlay':
+          tweetText = await twitterService.generateParlayTweet(parlayData);
+          break;
+        default:
+          return res.status(400).json({ message: "Invalid tweet type" });
+      }
+
+      res.json({ text: tweetText, type });
+    } catch (error) {
+      console.error("Error generating tweet:", error);
+      res.status(500).json({ message: "Failed to generate tweet" });
+    }
+  });
+
+  app.post('/api/twitter/post-generated/:sport/:type', async (req, res) => {
+    try {
+      const { sport, type } = req.params;
+      const { week, parlayData, imageUrl } = req.body;
+
+      // Generate the tweet text
+      let tweetText = '';
+      switch (type) {
+        case 'waiver_wire':
+          tweetText = await twitterService.generateWaiverWireTweet(sport, week);
+          break;
+        case 'betting_picks':
+          tweetText = await twitterService.generateBettingPicksTweet(sport);
+          break;
+        case 'parlay':
+          tweetText = await twitterService.generateParlayTweet(parlayData);
+          break;
+        default:
+          return res.status(400).json({ message: "Invalid tweet type" });
+      }
+
+      // Post the tweet
+      const result = await twitterService.postTweet({
+        text: tweetText,
+        imageUrl,
+        type: type as any
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error posting generated tweet:", error);
+      res.status(500).json({ message: "Failed to post generated tweet" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
