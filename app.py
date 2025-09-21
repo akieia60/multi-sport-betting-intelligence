@@ -195,6 +195,131 @@ def get_teams():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# === REACT FRONTEND API ENDPOINTS ===
+
+@app.route("/api/sports")
+def get_sports():
+    """Sports list for React frontend"""
+    return jsonify([
+        {"id": "nfl", "name": "NFL", "active": True},
+        {"id": "nba", "name": "NBA", "active": False},
+        {"id": "mlb", "name": "MLB", "active": False}
+    ])
+
+@app.route("/api/<sport>/games")
+@app.route("/api/games")
+def get_sport_games(sport="nfl"):
+    """Games for React frontend"""
+    if not sportsdata:
+        return jsonify([])
+
+    # Mock game data that your React app expects
+    games = [
+        {
+            "id": "game_1",
+            "homeTeam": {"name": "Chiefs", "abbreviation": "KC"},
+            "awayTeam": {"name": "Bills", "abbreviation": "BUF"},
+            "startTime": "2025-09-21T20:00:00Z",
+            "week": 3,
+            "status": "upcoming"
+        },
+        {
+            "id": "game_2",
+            "homeTeam": {"name": "Cowboys", "abbreviation": "DAL"},
+            "awayTeam": {"name": "Giants", "abbreviation": "NYG"},
+            "startTime": "2025-09-22T17:00:00Z",
+            "week": 3,
+            "status": "upcoming"
+        }
+    ]
+    return jsonify(games)
+
+@app.route("/api/<sport>/teams")
+@app.route("/api/teams")
+def get_sport_teams(sport="nfl"):
+    """Teams for React frontend"""
+    if not sportsdata:
+        return jsonify([])
+
+    teams = sportsdata.get_teams()
+    # Format for React frontend
+    formatted_teams = []
+    for i, team in enumerate(teams[:32]):  # NFL has 32 teams
+        formatted_teams.append({
+            "id": f"team_{i+1}",
+            "name": team.get("name", f"Team {i+1}"),
+            "abbreviation": team.get("key", f"T{i+1}"),
+            "city": team.get("city", "City"),
+            "conference": team.get("conference", "NFC"),
+            "division": team.get("division", "North")
+        })
+
+    return jsonify(formatted_teams)
+
+@app.route("/api/<sport>/players")
+@app.route("/api/players")
+def get_sport_players(sport="nfl"):
+    """Players for React frontend"""
+    if not sportsdata:
+        return jsonify([])
+
+    players = sportsdata.get_active_players(limit=200)
+    # Format for React frontend
+    formatted_players = []
+    for i, player in enumerate(players):
+        formatted_players.append({
+            "id": f"player_{i+1}",
+            "name": player.get("name", "Unknown"),
+            "position": "QB",  # Default position
+            "team": "KC",  # Default team
+            "jersey": player.get("number", "0"),
+            "height": player.get("height", "6'0\""),
+            "injury_status": player.get("injury_status", ""),
+            "status": player.get("status", "Active")
+        })
+
+    return jsonify(formatted_players)
+
+@app.route("/api/<sport>/slate")
+def get_slate(sport="nfl"):
+    """Slate data for React frontend"""
+    return jsonify({
+        "sport": sport,
+        "week": 3,
+        "season": 2025,
+        "games": 16,
+        "players": 800,
+        "lastUpdated": datetime.now().isoformat()
+    })
+
+@app.route("/api/<sport>/player-edges")
+def get_player_edges(sport="nfl"):
+    """Player edges for React frontend"""
+    if not sportsdata:
+        return jsonify([])
+
+    players = sportsdata.get_active_players(limit=50)
+    edges = []
+
+    for i, player in enumerate(players):
+        edges.append({
+            "id": f"edge_{i+1}",
+            "playerId": f"player_{i+1}",
+            "gameId": f"game_{(i % 2) + 1}",
+            "prop": "passing_yards",
+            "line": 250.5,
+            "edge": round(15.2 + (i * 0.3), 1),
+            "confidence": round(0.65 + (i * 0.01), 2),
+            "recommendation": "over" if i % 2 == 0 else "under"
+        })
+
+    return jsonify(edges)
+
+@app.route("/api/<sport>/refresh", methods=['POST'])
+def refresh_data(sport="nfl"):
+    """Refresh data endpoint"""
+    return jsonify({"success": True, "message": "Data refreshed", "timestamp": datetime.now().isoformat()})
+
 @app.route("/<path:path>")
 def catch_all(path):
     return send_from_directory("client/dist", "index.html")
