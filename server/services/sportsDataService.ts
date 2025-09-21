@@ -60,9 +60,13 @@ export class SportsDataService {
   private readonly weatherUrl = "https://api.open-meteo.com/v1";
   private readonly oddsApiUrl = "https://api.the-odds-api.com/v4";
   private readonly oddsApiKey = process.env.ODDS_API_KEY;
+  private readonly sportsDataApiKey = process.env.SPORTSDATA_API_KEY;
+  private readonly sportsDataUrl = "https://api.sportsdata.io/api/nfl";
 
   constructor() {
-    if (this.oddsApiKey) {
+    if (this.sportsDataApiKey) {
+      console.log("🏈 Using SportsDataIO (Premium NFL Data) + The Odds API + Weather");
+    } else if (this.oddsApiKey) {
       console.log("🎯 Using The Sports DB (Free) + Open-Meteo Weather + The Odds API (Live Betting)");
     } else {
       console.log("🏟️ Using The Sports DB (Free) + Open-Meteo Weather");
@@ -84,6 +88,30 @@ export class SportsDataService {
     
     const data = await response.json();
     console.log(`✅ Successfully fetched data, records: ${Array.isArray(data) ? data.length : typeof data}`);
+    
+    return data;
+  }
+
+  private async makeSportsDataRequest<T>(endpoint: string, errorContext?: string): Promise<T> {
+    const url = `${this.sportsDataUrl}${endpoint}`;
+    console.log(`🏈 SportsDataIO: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'Ocp-Apim-Subscription-Key': this.sportsDataApiKey || ''
+      }
+    });
+    
+    console.log(`📊 SportsDataIO Response: ${response.status} ${response.statusText}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ SportsDataIO API error${errorContext ? ` (${errorContext})` : ''}:`, errorText);
+      throw new Error(`SportsDataIO API request failed: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`✅ SportsDataIO data fetched, records: ${Array.isArray(data) ? data.length : typeof data}`);
     
     return data;
   }
@@ -261,7 +289,12 @@ export class SportsDataService {
 
   async getNFLGames(week?: number, season?: number): Promise<Game[]> {
     try {
-      // The Sports DB - Get NFL season games
+      // Use SportsDataIO if available, otherwise fall back to The Sports DB
+      if (this.sportsDataApiKey) {
+        return await this.getNFLGamesFromSportsDataIO(week, season);
+      }
+      
+      // Fallback to The Sports DB
       const url = `${this.sportsDbUrl}/eventsseason.php?id=4391&s=2024`;
       const response = await this.makeRequest<any>(url, 'NFL Games');
       
@@ -309,6 +342,79 @@ export class SportsDataService {
       return gamesWithWeather;
     } catch (error) {
       console.error("Error fetching NFL games:", error);
+      return [];
+    }
+  }
+
+  private async getNFLGamesFromSportsDataIO(week?: number, season?: number): Promise<Game[]> {
+    try {
+      const currentWeek = week || 3;
+      const currentSeason = season || 2024;
+      const seasonType = 'REG';
+      
+      console.log(`🏈 Fetching NFL games from SportsDataIO for ${currentSeason}${seasonType} Week ${currentWeek}`);
+      
+      const games = await this.makeSportsDataRequest<any[]>(
+        `/odds/json/ScoresByWeek/${currentSeason}${seasonType}/${currentWeek}`,
+        'NFL Games'
+      );
+      
+      // Also get game odds
+      const gameOdds = await this.makeSportsDataRequest<any[]>(
+        `/odds/json/GameOddsByWeek/${currentSeason}${seasonType}/${currentWeek}`,
+        'NFL Game Odds'
+      ).catch(() => []);
+      
+      const transformedGames = await Promise.all(games.map(async (game: any) => {
+        // Find odds for this game
+        const odds = gameOdds.find((o: any) => o.ScoreID === game.ScoreID);
+        
+        // Get weather if venue is available
+        const weather = game.Stadium ? await this.getWeatherForVenue(game.Stadium) : null;
+        
+        return {
+          id: `nfl-${game.ScoreID}`,
+          sportId: "nfl",
+          homeTeamId: `nfl-${game.HomeTeam}`,
+          awayTeamId: `nfl-${game.AwayTeam}`,
+          gameDate: new Date(game.DateTime),
+          venue: game.Stadium || null,
+          weather: weather ? {
+            temperature: weather.daily?.temperature_2m_max?.[0] || game.Temperature || null,
+            humidity: game.Humidity || null,
+            windSpeed: weather.daily?.wind_speed_10m_max?.[0] || game.WindSpeed || null,
+            windDirection: game.WindDirection || null,
+            conditions: weather.daily?.weather_code?.[0] ? this.getWeatherCondition(weather.daily.weather_code[0]) : null
+          } : null,
+          gameTotal: game.OverUnder || null,
+          isCompleted: game.IsGameOver || false,
+          lastUpdated: new Date(),
+          
+          // Additional SportsDataIO data
+          homeScore: game.HomeScore || 0,
+          awayScore: game.AwayScore || 0,
+          quarter: game.Quarter || null,
+          timeRemaining: game.TimeRemaining || null,
+          possession: game.Possession || null,
+          pointSpread: game.PointSpread || null,
+          
+          // Odds data if available
+          odds: odds ? {
+            spread: odds.PointSpread,
+            total: odds.OverUnder,
+            homeML: odds.HomeMoneyLine,
+            awayML: odds.AwayMoneyLine,
+            lastUpdated: new Date(odds.Updated || odds.DateTime)
+          } : null
+        };
+      }));
+      
+      console.log(`🏈 SportsDataIO: ${transformedGames.length} NFL games fetched with real data`);
+      return transformedGames;
+      
+    } catch (error) {
+      console.error("Error fetching NFL games from SportsDataIO:", error);
+      // Fall back to regular method if SportsDataIO fails
       return [];
     }
   }

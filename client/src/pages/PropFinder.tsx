@@ -3,6 +3,7 @@ import { Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GameCard } from "@/components/Games/GameCard";
 import { PlayerModal } from "@/components/Players/PlayerModal";
+import { HeroSection } from "@/components/HomePage/HeroSection";
 import { useGamesWithTeams, usePlayerEdges, useRefreshData } from "@/hooks/useSportsData";
 import { useRealTime } from "@/hooks/useRealTime";
 import type { FilterState } from "@/lib/types";
@@ -69,6 +70,14 @@ export default function PropFinder({ selectedSport, filters }: PropFinderProps) 
 
   return (
     <div className="min-h-screen bg-slate-900">
+      {/* Hero Section */}
+      <div className="p-6">
+        <HeroSection 
+          selectedSport={selectedSport} 
+          onNavigate={(path) => window.location.hash = path} 
+        />
+      </div>
+
       {/* Header */}
       <div className="p-6 border-b border-slate-700">
         <div className="flex justify-between items-center">

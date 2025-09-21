@@ -6,6 +6,7 @@ import { dataIngestionService } from "./services/dataIngestionService";
 import { edgeCalculator } from "./services/edgeCalculator";
 import { parlayBuilder } from "./services/parlayBuilder";
 import { buildJackpotCandidates, edgeToLeg } from "./services/jackpotBuilder";
+import { realDataCache } from "./services/realDataCache";
 import type { JackpotTier } from "./config/parlayJackpot";
 import type { Market, PickLeg } from "@shared/types";
 import { z } from "zod";
@@ -58,39 +59,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/:sport/games', async (req, res) => {
     try {
       const { sport } = req.params;
-      let games = await storage.getTodaysGames(sport);
       
-      // If no games in database, try to fetch from API
-      if (games.length === 0) {
-        try {
-          switch (sport) {
-            case "mlb":
-              games = await sportsDataService.getMLBGames();
-              break;
-            case "nfl":
-              games = await sportsDataService.getNFLGames();
-              break;
-            case "nba":
-              games = await sportsDataService.getNBAGames();
-              break;
-          }
-          
-          // Store games in database for next time
-          for (const game of games) {
-            try {
-              await storage.createGame({
-                ...game,
-                weather: game.weather as any
-              });
-            } catch (error) {
-              // Game might already exist
+      // Use real data cache for supported sports with SportsDataIO
+      let games;
+      if (sport === 'nfl' && process.env.SPORTSDATA_API_KEY) {
+        console.log('🏈 Using SportsDataIO for NFL games');
+        games = await realDataCache.getNFLGames();
+      } else if (sport === 'mlb') {
+        games = await realDataCache.getMLBGames();
+      } else if (sport === 'nba') {
+        games = await realDataCache.getNBAGames();
+      } else {
+        // Fallback to storage/API for other sports
+        games = await storage.getTodaysGames(sport);
+        
+        // If no games in database, try to fetch from API
+        if (games.length === 0) {
+          try {
+            switch (sport) {
+              case "mlb":
+                games = await sportsDataService.getMLBGames();
+                break;
+              case "nfl":
+                games = await sportsDataService.getNFLGames();
+                break;
+              case "nba":
+                games = await sportsDataService.getNBAGames();
+                break;
             }
+            
+            // Store games in database for next time
+            for (const game of games) {
+              try {
+                await storage.createGame({
+                  ...game,
+                  weather: game.weather as any
+                });
+              } catch (error) {
+                // Game might already exist
+              }
+            }
+          } catch (apiError) {
+            console.error(`Error fetching ${sport} games from API:`, apiError);
           }
-        } catch (apiError) {
-          console.error(`Error fetching ${sport} games from API:`, apiError);
         }
       }
       
+      console.log(`📊 Serving ${games.length} ${sport.toUpperCase()} games`);
       res.json(games);
     } catch (error) {
       console.error("Error fetching games:", error);
@@ -480,16 +495,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Additional edge endpoint for specific sport
-  app.get('/api/:sport/edges', async (req, res) => {
-    try {
-      const { sport } = req.params;
-      const edges = await storage.getPlayerEdges(undefined, sport);
-      res.json(edges);
-    } catch (error) {
-      console.error("Error fetching edges:", error);
-      res.status(500).json({ message: "Failed to fetch edges" });
-    }
-  });
 
   // Initialize data for all sports - CRITICAL FIX for empty parlay builder
   app.post('/api/initialize-sports-data', async (req, res) => {
