@@ -5,19 +5,11 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    try:
-        static_dir = os.path.join(os.getcwd(), "dist", "public")
-        return send_from_directory(static_dir, "index.html")
-    except Exception as e:
-        return jsonify({"error": "Frontend not found", "details": str(e), "cwd": os.getcwd()}), 404
+    return send_from_directory("client/dist", "index.html")
 
 @app.route("/assets/<path:filename>")
 def assets(filename):
-    try:
-        assets_dir = os.path.join(os.getcwd(), "dist", "public", "assets")
-        return send_from_directory(assets_dir, filename)
-    except Exception as e:
-        return jsonify({"error": "Asset not found", "file": filename}), 404
+    return send_from_directory("client/dist/assets", filename)
 
 @app.route("/api/health")
 def health():
@@ -29,11 +21,7 @@ def status():
 
 @app.route("/<path:path>")
 def catch_all(path):
-    try:
-        static_dir = os.path.join(os.getcwd(), "dist", "public")
-        return send_from_directory(static_dir, "index.html")
-    except Exception:
-        return jsonify({"error": "Route not found", "path": path}), 404
+    return send_from_directory("client/dist", "index.html")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
