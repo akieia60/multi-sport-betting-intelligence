@@ -1,21 +1,27 @@
 from flask import Flask, send_from_directory, jsonify
 import os
-app = Flask(__name__, static_folder="dist/public", static_url_path="")
+
+app = Flask(__name__)
+
 @app.route("/")
 def root_index():
-    return send_from_directory(app.static_folder, "index.html")
+    return send_from_directory("dist/public", "index.html")
+
+@app.route("/<path:path>")
+def serve_static(path):
+    try:
+        return send_from_directory("dist/public", path)
+    except Exception:
+        return send_from_directory("dist/public", "index.html")
+
 @app.route("/api/health")
 def health():
     return jsonify({"status": "ok"})
+
 @app.route("/api/status")
 def status():
     return jsonify({"platform": "railway", "app": "sportedge-pro"})
-@app.errorhandler(404)
-def not_found(e):
-    try:
-        return send_from_directory(app.static_folder, "index.html")
-    except Exception:
-        return jsonify({"error": "Not found"}), 404
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)
