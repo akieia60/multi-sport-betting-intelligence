@@ -16,44 +16,52 @@ try:
 except Exception as e:
     print(f"⚠️ SportsData loading failed: {e}")
 
-# Try to load engines (optional - app works without them)
+# FORCE load the data engine - no exceptions allowed
 data_engine = None
 twitter_engine = None
 newsletter_engine = None
 
+print("🔥 LOADING DATA ENGINE WITH YOUR REAL API KEYS...")
+
+# Load the data engine first - this MUST work
 try:
     from data_engine import ProfessionalDataEngine
-    from twitter_engine import TwitterGrowthEngine
-    from newsletter_engine import NewsletterAutomationEngine
-    from config import Brand, Schedule, Monetization
+    data_engine = ProfessionalDataEngine()
+    print("✅ Data Engine class loaded")
 
-    # FORCE initialize the data engine with your $150 API key
+    # Test both APIs immediately
     if os.getenv('ODDS_API_KEY'):
-        try:
-            data_engine = ProfessionalDataEngine()
-            print("✅ Data Engine loaded with $150 Odds API")
-            # Test the connection immediately
-            test_games = data_engine.get_nfl_games()
-            print(f"✅ Connected to Odds API - Found {len(test_games)} NFL games")
-        except Exception as e:
-            print(f"❌ Odds API connection failed: {e}")
+        print(f"🔑 Testing Odds API key: {os.getenv('ODDS_API_KEY')[:10]}...")
+        test_games = data_engine.get_nfl_games()
+        print(f"✅ Odds API WORKING - Found {len(test_games)} NFL games")
 
-    if os.getenv('TWITTER_API_KEY'):
-        try:
-            twitter_engine = TwitterGrowthEngine()
-            print("✅ Twitter Engine loaded")
-        except Exception as e:
-            print(f"❌ Twitter Engine failed: {e}")
-
-    try:
-        newsletter_engine = NewsletterAutomationEngine()
-        print("✅ Newsletter Engine loaded")
-    except Exception as e:
-        print(f"❌ Newsletter Engine failed: {e}")
+    if os.getenv('SPORTSDATA_API_KEY'):
+        print(f"🔑 Testing SportsDataIO key: {os.getenv('SPORTSDATA_API_KEY')[:10]}...")
+        test_teams = data_engine.get_sportsdata_teams()
+        print(f"✅ SportsDataIO WORKING - Found {len(test_teams)} NFL teams")
 
 except Exception as e:
-    print(f"⚠️ Engine loading failed: {e}")
-    print("✅ App will work with SportsData.io files only")
+    print(f"❌ CRITICAL: Data Engine failed to load: {e}")
+    import traceback
+    traceback.print_exc()
+
+# Try other engines (optional)
+try:
+    from twitter_engine import TwitterGrowthEngine
+    if os.getenv('TWITTER_API_KEY'):
+        twitter_engine = TwitterGrowthEngine()
+        print("✅ Twitter Engine loaded")
+except Exception as e:
+    print(f"⚠️ Twitter Engine failed: {e}")
+
+try:
+    from newsletter_engine import NewsletterAutomationEngine
+    newsletter_engine = NewsletterAutomationEngine()
+    print("✅ Newsletter Engine loaded")
+except Exception as e:
+    print(f"⚠️ Newsletter Engine failed: {e}")
+
+print(f"🎯 FINAL STATUS: data_engine={'LOADED' if data_engine else 'FAILED'}")
 
 app = Flask(__name__)
 CORS(app)
