@@ -324,5 +324,6 @@ export class DatabaseStorage implements IStorage {
 
 import { mockStorage } from "./mockStorage";
 
-// Use mock storage if no database is available
-export const storage = process.env.DATABASE_URL ? new DatabaseStorage() : mockStorage;
+// Always use mock storage for deployment - no database required
+console.log("🚀 Using mock storage for deployment - no database required");
+export const storage = mockStorage;
