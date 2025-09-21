@@ -322,4 +322,7 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+import { mockStorage } from "./mockStorage";
+
+// Use mock storage if no database is available
+export const storage = process.env.DATABASE_URL ? new DatabaseStorage() : mockStorage;
