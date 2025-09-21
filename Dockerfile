@@ -10,7 +10,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir gunicorn
 COPY . .
-COPY --from=frontend /app/dist ./dist
-RUN ls -la /app/dist/public/ || echo "Frontend build failed"
+COPY --from=frontend /app/dist ./client/dist
+RUN ls -la /app/client/dist/ || echo "Frontend build failed"
 ENV PORT=8080
-CMD gunicorn app:app --bind 0.0.0.0:$PORT
+CMD gunicorn src.main:app --bind 0.0.0.0:$PORT
