@@ -13,4 +13,5 @@ COPY . .
 COPY --from=frontend /app/dist ./client/dist
 RUN ls -la /app/client/dist/ || echo "Frontend build failed"
 ENV PORT=8080
-CMD gunicorn simple_app:app --bind 0.0.0.0:$PORT
+ENV PYTHONPATH=/app
+CMD gunicorn src.main:app --bind 0.0.0.0:$PORT --timeout 120
