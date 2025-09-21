@@ -58,7 +58,22 @@ init_engines()
 # Static file serving
 @app.route("/")
 def index():
-    return send_from_directory("client/dist", "index.html")
+    try:
+        # Check multiple possible locations
+        static_paths = ["client/dist", "dist/public", "dist"]
+        for path in static_paths:
+            if os.path.exists(os.path.join(path, "index.html")):
+                return send_from_directory(path, "index.html")
+
+        # Debug info if none found
+        return jsonify({
+            "error": "Frontend not found",
+            "checked_paths": static_paths,
+            "current_dir": os.getcwd(),
+            "files": os.listdir(".") if os.path.exists(".") else "no current dir"
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 @app.route("/assets/<path:filename>")
 def assets(filename):
