@@ -10,16 +10,16 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import our engines
 try:
-    from twitter_engine import TwitterEngine
-    from data_engine import DataEngine
-    from newsletter_engine import NewsletterEngine
-    from config import Config
+    from twitter_engine import TwitterGrowthEngine
+    from data_engine import ProfessionalProfessionalDataEngine
+    from newsletter_engine import NewsletterAutomationEngine
+    from config import Brand
 except ImportError as e:
     print(f"Warning: Could not import engines: {e}")
-    TwitterEngine = None
-    DataEngine = None
-    NewsletterEngine = None
-    Config = None
+    TwitterGrowthEngine = None
+    ProfessionalProfessionalDataEngine = None
+    NewsletterAutomationEngine = None
+    Brand = None
 
 # Set up proper MIME types
 mimetypes.add_type('application/javascript', '.js')
@@ -59,9 +59,9 @@ def health():
         'platform': 'SportEdge Pro',
         'version': '2.0',
         'services': {
-            'twitter': TwitterEngine is not None,
-            'data': DataEngine is not None,
-            'newsletter': NewsletterEngine is not None
+            'twitter': TwitterGrowthEngine is not None,
+            'data': ProfessionalDataEngine is not None,
+            'newsletter': NewsletterAutomationEngine is not None
         }
     })
 
@@ -82,12 +82,12 @@ def api_status():
 
 @app.route('/api/twitter/status')
 def twitter_status():
-    if TwitterEngine is None:
+    if TwitterGrowthEngine is None:
         return jsonify({'error': 'Twitter engine not available'}), 503
     
     try:
         # Initialize Twitter engine and check status
-        twitter = TwitterEngine()
+        twitter = TwitterGrowthEngine()
         return jsonify({
             'status': 'connected',
             'ready': True,
@@ -102,12 +102,12 @@ def twitter_status():
 
 @app.route('/api/data/status')
 def data_status():
-    if DataEngine is None:
+    if ProfessionalDataEngine is None:
         return jsonify({'error': 'Data engine not available'}), 503
     
     try:
         # Initialize data engine and check status
-        data = DataEngine()
+        data = ProfessionalDataEngine()
         return jsonify({
             'status': 'connected',
             'ready': True,
@@ -122,12 +122,12 @@ def data_status():
 
 @app.route('/api/newsletter/status')
 def newsletter_status():
-    if NewsletterEngine is None:
+    if NewsletterAutomationEngine is None:
         return jsonify({'error': 'Newsletter engine not available'}), 503
     
     try:
         # Initialize newsletter engine and check status
-        newsletter = NewsletterEngine()
+        newsletter = NewsletterAutomationEngine()
         return jsonify({
             'status': 'connected',
             'ready': True,
@@ -143,7 +143,7 @@ def newsletter_status():
 # Twitter API endpoints
 @app.route('/api/twitter/post', methods=['POST'])
 def twitter_post():
-    if TwitterEngine is None:
+    if TwitterGrowthEngine is None:
         return jsonify({'error': 'Twitter engine not available'}), 503
     
     try:
@@ -153,7 +153,7 @@ def twitter_post():
         if not message:
             return jsonify({'error': 'Message is required'}), 400
         
-        twitter = TwitterEngine()
+        twitter = TwitterGrowthEngine()
         result = twitter.post_tweet(message)
         
         return jsonify({
@@ -170,11 +170,11 @@ def twitter_post():
 # Data API endpoints
 @app.route('/api/data/games')
 def get_games():
-    if DataEngine is None:
+    if ProfessionalDataEngine is None:
         return jsonify({'error': 'Data engine not available'}), 503
     
     try:
-        data = DataEngine()
+        data = ProfessionalDataEngine()
         games = data.get_current_games()
         
         return jsonify({
@@ -189,11 +189,11 @@ def get_games():
 
 @app.route('/api/data/odds')
 def get_odds():
-    if DataEngine is None:
+    if ProfessionalDataEngine is None:
         return jsonify({'error': 'Data engine not available'}), 503
     
     try:
-        data = DataEngine()
+        data = ProfessionalDataEngine()
         odds = data.get_betting_odds()
         
         return jsonify({
