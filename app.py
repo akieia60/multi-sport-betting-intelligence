@@ -1,6 +1,6 @@
 from flask import Flask, send_from_directory, jsonify
 import os
-app = Flask(__name__, static_folder="dist", static_url_path="")
+app = Flask(__name__, static_folder="dist/public", static_url_path="")
 @app.route("/")
 def root_index():
     return send_from_directory(app.static_folder, "index.html")
