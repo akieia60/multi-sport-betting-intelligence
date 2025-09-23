@@ -597,6 +597,18 @@ def get_player_edges(sport="nfl"):
 
     return jsonify([])
 
+@app.route("/api/<sport>/jackpot-candidates")
+def get_jackpot_candidates(sport="nfl"):
+    """Get jackpot parlay candidates for React frontend"""
+    # Return empty array for now to prevent JavaScript errors
+    return jsonify([])
+
+@app.route("/api/<sport>/picks")
+def get_picks(sport="nfl"):
+    """Get betting picks for React frontend"""
+    # Return empty array for now to prevent JavaScript errors
+    return jsonify([])
+
 @app.route("/api/<sport>/refresh", methods=['POST'])
 def refresh_data(sport="nfl"):
     """Refresh data endpoint"""
